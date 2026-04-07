@@ -9,7 +9,6 @@ effort: medium
 
 # Firebase Skill
 
-*Load with: base.md + security.md*
 
 Firebase/Firestore patterns for web and mobile applications with real-time data, offline support, and security rules.
 

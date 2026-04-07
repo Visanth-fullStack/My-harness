@@ -8,7 +8,6 @@ effort: high
 
 # Agentic Development Skill
 
-*Load with: base.md + llm-patterns.md + [language].md*
 
 For building autonomous AI agents that perform multi-step tasks with tools.
 

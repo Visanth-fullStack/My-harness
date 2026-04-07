@@ -9,7 +9,6 @@ effort: medium
 
 # AWS Aurora Skill
 
-*Load with: base.md + [typescript.md | python.md]*
 
 Amazon Aurora is a MySQL/PostgreSQL-compatible relational database with serverless scaling, high availability, and enterprise features.
 

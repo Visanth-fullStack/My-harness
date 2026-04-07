@@ -8,7 +8,6 @@ effort: low
 
 # Team Coordination Skill
 
-*Load with: base.md*
 
 **Purpose:** Enable multiple Claude Code sessions across a team to coordinate and work together without conflicts. Manages shared state, todo claiming, decision syncing, and session awareness.
 

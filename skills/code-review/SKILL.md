@@ -9,7 +9,6 @@ effort: high
 
 # Code Review Skill
 
-*Load with: base.md + [codex-review.md for OpenAI Codex] + [gemini-review.md for Google Gemini]*
 
 **Purpose:** Enforce automated code reviews as a mandatory guardrail before every commit and deployment. Choose between Claude, OpenAI Codex, Google Gemini, or multiple engines for comprehensive analysis.
 

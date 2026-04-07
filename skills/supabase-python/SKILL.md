@@ -9,7 +9,6 @@ effort: medium
 
 # Supabase + Python Skill
 
-*Load with: base.md + supabase.md + python.md*
 
 FastAPI patterns with Supabase Auth and SQLAlchemy/SQLModel for database access.
 

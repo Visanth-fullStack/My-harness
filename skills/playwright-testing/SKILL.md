@@ -9,7 +9,6 @@ effort: medium
 
 # Playwright E2E Testing Skill
 
-*Load with: base.md + [framework].md*
 
 For end-to-end testing of web applications with Playwright - cross-browser, fast, reliable.
 

@@ -9,7 +9,6 @@ effort: medium
 
 # React Native Skill
 
-*Load with: base.md + typescript.md*
 
 ---
 

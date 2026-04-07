@@ -8,7 +8,6 @@ effort: medium
 
 # LLM Patterns Skill
 
-*Load with: base.md + [language].md*
 
 For AI-first applications where LLMs handle logical operations.
 

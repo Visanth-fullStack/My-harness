@@ -8,7 +8,6 @@ effort: high
 
 # Agent Teams Skill
 
-*Load with: base.md + code-review.md + security.md + session-management.md*
 
 **Purpose:** Every project initialized with claude-bootstrap runs as a coordinated team of AI agents. This is the default workflow, not optional. Teams enforce a strict TDD pipeline where no step can be skipped.
 

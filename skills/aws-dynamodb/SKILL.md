@@ -9,7 +9,6 @@ effort: medium
 
 # AWS DynamoDB Skill
 
-*Load with: base.md + [typescript.md | python.md]*
 
 DynamoDB is a fully managed NoSQL database designed for single-digit millisecond performance at any scale. Master single-table design and access pattern modeling.
 

@@ -9,7 +9,6 @@ effort: medium
 
 # Android Java Skill
 
-*Load with: base.md*
 
 ---
 

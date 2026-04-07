@@ -9,7 +9,6 @@ effort: medium
 
 # Site Architecture Skill
 
-*Load with: base.md + web-content.md*
 
 For technical website structure that enables discovery by search engines AND AI crawlers (GPTBot, ClaudeBot, PerplexityBot).
 

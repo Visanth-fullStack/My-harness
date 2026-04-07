@@ -9,7 +9,6 @@ effort: medium
 
 # TypeScript Skill
 
-*Load with: base.md*
 
 ---
 

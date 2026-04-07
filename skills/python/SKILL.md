@@ -9,7 +9,6 @@ effort: medium
 
 # Python Skill
 
-*Load with: base.md*
 
 ---
 

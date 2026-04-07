@@ -8,7 +8,6 @@ effort: low
 
 # Commit Hygiene Skill
 
-*Load with: base.md*
 
 **Purpose:** Keep commits atomic, PRs reviewable, and git history clean. Advise when it's time to commit before changes become too large.
 

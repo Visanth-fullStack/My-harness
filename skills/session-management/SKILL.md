@@ -8,7 +8,6 @@ effort: low
 
 # Session Management Skill
 
-*Load with: base.md*
 
 For maintaining context across long development sessions and enabling seamless resume after breaks.
 

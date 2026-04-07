@@ -8,7 +8,6 @@ effort: low
 
 # Project Tooling Skill
 
-*Load with: base.md*
 
 Standard CLI tools for project infrastructure management.
 

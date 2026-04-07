@@ -9,7 +9,6 @@ effort: medium
 
 # React Web Skill
 
-*Load with: base.md + typescript.md*
 
 ---
 

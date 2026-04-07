@@ -8,7 +8,6 @@ effort: medium
 
 # Klaviyo E-Commerce Marketing Skill
 
-*Load with: base.md + (typescript.md or python.md)*
 
 For integrating Klaviyo email/SMS marketing - customer profiles, event tracking, campaigns, flows, and segmentation.
 

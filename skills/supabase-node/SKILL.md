@@ -9,7 +9,6 @@ effort: medium
 
 # Supabase + Node.js Skill
 
-*Load with: base.md + supabase.md + typescript.md*
 
 Express/Hono patterns with Supabase Auth and Drizzle ORM.
 

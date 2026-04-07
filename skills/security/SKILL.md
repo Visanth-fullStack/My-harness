@@ -9,7 +9,6 @@ effort: high
 
 # Security Skill
 
-*Load with: base.md*
 
 Security best practices and automated security testing for all projects.
 

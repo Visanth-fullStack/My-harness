@@ -9,7 +9,6 @@ effort: medium
 
 # Cloudflare D1 Skill
 
-*Load with: base.md + typescript.md*
 
 Cloudflare D1 is a serverless SQLite database designed for Cloudflare Workers with global distribution and zero cold starts.
 

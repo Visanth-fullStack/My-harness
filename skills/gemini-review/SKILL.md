@@ -8,7 +8,6 @@ effort: medium
 
 # Google Gemini Code Review Skill
 
-*Load with: base.md + code-review.md*
 
 Use Google's Gemini CLI for code review with Gemini 2.5 Pro - featuring a massive 1M token context window that can analyze entire repositories at once.
 

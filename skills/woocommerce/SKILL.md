@@ -8,7 +8,6 @@ effort: medium
 
 # WooCommerce Development Skill
 
-*Load with: base.md + (typescript.md or python.md)*
 
 For integrating with WooCommerce stores via REST API - products, orders, customers, webhooks, and custom extensions.
 

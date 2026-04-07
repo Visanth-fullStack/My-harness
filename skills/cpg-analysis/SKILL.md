@@ -8,7 +8,6 @@ effort: high
 
 # CPG Analysis Skill
 
-*Load with: base.md + code-graph.md + security.md*
 
 **Purpose:** Deep code analysis beyond AST. Use Joern for full Code
 Property Graph (control flow, data flow, program dependencies) and CodeQL

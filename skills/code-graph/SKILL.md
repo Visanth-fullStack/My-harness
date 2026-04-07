@@ -8,7 +8,6 @@ effort: medium
 
 # Code Graph Skill
 
-*Load with: base.md*
 
 **Purpose:** Use the code graph (codebase-memory-mcp) for sub-millisecond
 symbol lookup, function search, dependency analysis, and blast radius

@@ -8,7 +8,6 @@ effort: low
 
 # Credentials Management Skill
 
-*Load with: base.md*
 
 For securely loading API keys from a centralized access file and configuring project environments.
 

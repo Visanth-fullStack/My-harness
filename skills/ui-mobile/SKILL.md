@@ -9,7 +9,6 @@ effort: medium
 
 # Mobile UI Design Skill (React Native)
 
-*Load with: base.md + react-native.md*
 
 ---
 

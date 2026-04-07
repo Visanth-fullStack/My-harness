@@ -8,7 +8,6 @@ effort: medium
 
 # Reddit Ads API Skill
 
-*Load with: base.md*
 
 **Purpose:** Automate Reddit advertising campaigns using the Reddit Ads API. Create, manage, and optimize campaigns, ad groups, and ads programmatically.
 

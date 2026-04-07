@@ -8,7 +8,6 @@ effort: low
 
 # AI Models Reference Skill
 
-*Load with: base.md + llm-patterns.md*
 
 **Last Updated: December 2025**
 

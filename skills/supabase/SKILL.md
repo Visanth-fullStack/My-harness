@@ -9,7 +9,6 @@ effort: medium
 
 # Supabase Core Skill
 
-*Load with: base.md + [supabase-nextjs.md | supabase-python.md | supabase-node.md]*
 
 Core concepts, CLI workflow, and patterns common to all Supabase projects.
 

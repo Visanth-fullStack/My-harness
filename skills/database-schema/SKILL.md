@@ -9,7 +9,6 @@ effort: medium
 
 # Database Schema Awareness Skill
 
-*Load with: base.md + [your database skill]*
 
 **Problem:** Claude forgets schema details mid-session - wrong column names, missing fields, incorrect types. TDD catches this at runtime, but we can prevent it earlier.
 

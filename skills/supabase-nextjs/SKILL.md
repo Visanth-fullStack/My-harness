@@ -9,7 +9,6 @@ effort: medium
 
 # Supabase + Next.js Skill
 
-*Load with: base.md + supabase.md + typescript.md*
 
 Next.js App Router patterns with Supabase Auth and Drizzle ORM.
 

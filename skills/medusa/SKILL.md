@@ -8,7 +8,6 @@ effort: medium
 
 # Medusa E-Commerce Skill
 
-*Load with: base.md + typescript.md*
 
 For building headless e-commerce with Medusa - open-source, Node.js native, fully customizable.
 

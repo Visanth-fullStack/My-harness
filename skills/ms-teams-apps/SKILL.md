@@ -8,7 +8,6 @@ effort: medium
 
 # Microsoft Teams Apps Skill
 
-*Load with: base.md*
 
 **Purpose:** Build AI-powered agents and apps for Microsoft Teams. Create conversational bots, message extensions, and intelligent assistants that integrate with LLMs like OpenAI and Claude.
 

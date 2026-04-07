@@ -8,7 +8,6 @@ effort: medium
 
 # Shopify App Development Skill
 
-*Load with: base.md + typescript.md + react-web.md*
 
 For building Shopify apps using Remix, the Shopify App framework, and checkout UI extensions.
 

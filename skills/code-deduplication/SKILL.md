@@ -8,7 +8,6 @@ effort: medium
 
 # Code Deduplication Skill
 
-*Load with: base.md*
 
 **Purpose:** Prevent semantic duplication and code bloat. Maintain a capability index so Claude always knows what exists before writing something new.
 

@@ -8,7 +8,6 @@ effort: medium
 
 # PostHog Analytics Skill
 
-*Load with: base.md + [framework].md*
 
 For implementing product analytics with PostHog - event tracking, user identification, feature flags, and project-specific dashboards.
 

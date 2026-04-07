@@ -9,7 +9,6 @@ effort: medium
 
 # Node.js Backend Skill
 
-*Load with: base.md + typescript.md*
 
 ---
 

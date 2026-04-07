@@ -8,7 +8,6 @@ effort: high
 
 # Web Payments Skill (Stripe)
 
-*Load with: base.md + [framework].md*
 
 For integrating Stripe payments into web applications - one-time payments, subscriptions, and checkout flows.
 

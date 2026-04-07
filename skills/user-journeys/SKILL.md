@@ -8,7 +8,6 @@ effort: medium
 
 # User Journeys Skill
 
-*Load with: base.md + playwright-testing.md*
 
 For defining and testing real user experiences - not just specs, but actual flows humans take through your application.
 

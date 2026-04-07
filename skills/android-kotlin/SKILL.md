@@ -9,7 +9,6 @@ effort: medium
 
 # Android Kotlin Skill
 
-*Load with: base.md*
 
 ---
 

@@ -8,7 +8,6 @@ effort: medium
 
 # Web Content Skill
 
-*Load with: base.md + ui-web.md*
 
 For creating web content optimized for both traditional SEO and AI discovery (ChatGPT, Perplexity, Claude, Gemini).
 

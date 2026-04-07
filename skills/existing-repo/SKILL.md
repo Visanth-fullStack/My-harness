@@ -9,7 +9,6 @@ effort: high
 
 # Existing Repository Skill
 
-*Load with: base.md + security.md*
 
 For working with existing codebases - analyze structure, respect conventions, and set up proper guardrails without breaking anything.
 

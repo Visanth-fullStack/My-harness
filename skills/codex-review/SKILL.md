@@ -8,7 +8,6 @@ effort: medium
 
 # OpenAI Codex Code Review Skill
 
-*Load with: base.md + code-review.md*
 
 Use OpenAI's Codex CLI for specialized code review with GPT-5.2-Codex - trained specifically for detecting bugs, security flaws, and code quality issues.
 

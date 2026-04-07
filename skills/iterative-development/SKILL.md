@@ -8,7 +8,6 @@ effort: medium
 
 # Iterative Development Skill (Stop Hook TDD Loops)
 
-*Load with: base.md*
 
 **Concept:** Claude Code's Stop hook fires right before Claude finishes a response. Exit code 2 feeds stderr back to the model and continues the conversation. This creates a real TDD loop without any plugins.
 

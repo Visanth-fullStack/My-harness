@@ -8,7 +8,6 @@ effort: medium
 
 # AI Engine Optimization (AEO) Skill
 
-*Load with: base.md + web-content.md + site-architecture.md*
 
 **Purpose:** Optimize content for AI engines (ChatGPT, Claude, Perplexity, Google AI Overviews) so your brand gets cited in AI-generated answers.
 

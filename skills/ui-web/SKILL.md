@@ -9,7 +9,6 @@ effort: medium
 
 # UI Design Skill (Web)
 
-*Load with: base.md + react-web.md*
 
 ---
 

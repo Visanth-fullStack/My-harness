@@ -8,7 +8,6 @@ effort: medium
 
 # Reddit API Skill
 
-*Load with: base.md + [language].md*
 
 For integrating Reddit data into applications - fetching posts, comments, subreddits, and user data.
 

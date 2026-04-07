@@ -9,7 +9,6 @@ effort: medium
 
 # PWA Development Skill
 
-*Load with: base.md*
 
 **Purpose:** Build Progressive Web Apps that work offline, install like native apps, and deliver fast, reliable experiences across all devices.
 

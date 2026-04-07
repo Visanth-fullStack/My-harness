@@ -8,7 +8,6 @@ effort: high
 
 # iCPG Skill (Intent-Augmented Code Property Graph)
 
-*Load with: base.md + code-graph.md*
 
 **Purpose:** Add a Reason Graph layer on top of code structure so every
 function, class, and module is traceable to the goal that created it,

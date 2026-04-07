@@ -9,7 +9,6 @@ effort: medium
 
 # Flutter Skill
 
-*Load with: base.md*
 
 ---
 
