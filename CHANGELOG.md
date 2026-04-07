@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.3.2] - 2026-04-07
+
+### Fixed
+- Removed stale `Load with: base.md` line from all 53 skills. Since v3.0, base skill loads via `@include` in CLAUDE.md, not per-skill. The leftover line caused confusion about missing files. (Fixes #13)
+
+### Housekeeping
+- Closed #10 (Gen Agent Trust Hub security audit) — false positives from scanning markdown code samples as executable code.
+- Closed #12 (Dispatch discoverability) — will address skill description metadata in a future cleanup pass.
+- Closed #11 (Low quality skills) — will revisit with specific eval criteria.
+
+---
+
 ## [3.3.1] - 2026-04-03
 
 ### Added
