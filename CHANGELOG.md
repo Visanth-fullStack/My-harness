@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.4.1] - 2026-04-10
+
+### Fixed
+- Fixed broken `build-backend` in all three pyproject.toml files (icpg, mnemos, skill_lint). Changed `setuptools.backends._legacy:_Backend` to `setuptools.build_meta`. (Community reported)
+
+### Added
+- Cheeky personality section in CLAUDE.md template for new projects
+
+---
+
 ## [3.4.0] - 2026-04-07
 
 ### Added
