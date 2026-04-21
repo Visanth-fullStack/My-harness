@@ -136,6 +136,6 @@ if stale:
                             json.dump(fatigue_data, f)
     except:
         pass  # Best effort — don't block the hook
-" 2>/dev/null
+"
 
 exit 0

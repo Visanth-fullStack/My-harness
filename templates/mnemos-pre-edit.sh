@@ -30,7 +30,7 @@ try:
 except:
     print('FILE_PATH=\"\"')
     print('TOOL_NAME=\"\"')
-" 2>/dev/null)
+")
 fi
 
 if [ -z "$FILE_PATH" ]; then
@@ -51,7 +51,7 @@ signal = {
 }
 with open('.mnemos/signals.jsonl', 'a') as f:
     f.write(json.dumps(signal) + '\n')
-" 2>/dev/null
+"
 fi
 
 # ─── Fatigue check (full model from observable signals) ───
@@ -84,7 +84,7 @@ except Exception:
         else: print('flow')
     except:
         print('flow')
-" 2>/dev/null)
+")
 
     # Auto-checkpoint at pre_sleep or higher
     if [ "$FATIGUE_ACTION" = "pre_sleep" ] || [ "$FATIGUE_ACTION" = "rem" ] || [ "$FATIGUE_ACTION" = "emergency" ]; then
@@ -127,9 +127,9 @@ if command -v icpg &>/dev/null || python3 -m icpg --version &>/dev/null 2>&1; th
             ICPG_CMD="python3 -m icpg"
         fi
 
-        CONTEXT=$($ICPG_CMD query context "$FILE_PATH" 2>/dev/null)
-        CONSTRAINTS=$($ICPG_CMD query constraints "$FILE_PATH" 2>/dev/null)
-        DRIFT=$($ICPG_CMD drift file "$FILE_PATH" 2>/dev/null)
+        CONTEXT=$($ICPG_CMD query context "$FILE_PATH")
+        CONSTRAINTS=$($ICPG_CMD query constraints "$FILE_PATH")
+        DRIFT=$($ICPG_CMD drift file "$FILE_PATH")
     fi
 fi
 

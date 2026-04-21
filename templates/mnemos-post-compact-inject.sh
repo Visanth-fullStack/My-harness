@@ -49,7 +49,7 @@ except FileNotFoundError:
     print('already_consumed')
 except Exception:
     print('error')
-" 2>/dev/null)
+")
 
 # Only inject if we successfully consumed the marker
 if [ "$CONSUMED" != "consumed" ]; then
@@ -99,6 +99,6 @@ except Exception as e:
     except:
         print('=== MNEMOS: Compaction detected but checkpoint unreadable. ===')
         print('Ask the user what they were working on.')
-" 2>/dev/null
+"
 
 exit 0

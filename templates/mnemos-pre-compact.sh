@@ -34,7 +34,7 @@ import json, time, os
 os.makedirs('.mnemos', exist_ok=True)
 with open('.mnemos/just-compacted', 'w') as f:
     json.dump({'timestamp': time.time(), 'reason': 'pre_compact_hook'}, f)
-" 2>/dev/null
+"
 
 # ─── 3. Build inline checkpoint content for summarizer ───
 # Use a temp Python script to avoid bash escaping issues with f-strings
@@ -88,7 +88,7 @@ try:
 except Exception as e:
     print('Error: ' + str(e), file=sys.stderr)
 PYSCRIPT
-    CHECKPOINT_CONTENT=$(python3 "$TMPSCRIPT" 2>/dev/null)
+    CHECKPOINT_CONTENT=$(python3 "$TMPSCRIPT")
     rm -f "$TMPSCRIPT"
 fi
 
@@ -138,7 +138,7 @@ try:
 except Exception:
     pass
 PYSCRIPT
-    MNEMOS_PRIORITIES=$(python3 "$TMPSCRIPT2" 2>/dev/null)
+    MNEMOS_PRIORITIES=$(python3 "$TMPSCRIPT2")
     rm -f "$TMPSCRIPT2"
 fi
 

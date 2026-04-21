@@ -6,6 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.5.2] - 2026-04-22
+
+### Fixed
+- **Hook error behavior revised** — the 3.5.1 fix silently no-op'd missing scripts, which hid real installation problems. Hook commands now:
+  - **Fail loud on real errors** — if the script exists and crashes, its stderr + non-zero exit propagate to Claude Code so you can debug
+  - **Print one actionable line on missing installs** — `[claude-bootstrap] hook script 'X' not installed — run <claude-bootstrap>/install.sh …` and exit 0 (no blocking error, but you see exactly what to do)
+  - **Use `exec` to run the resolved script** — exit code + stderr pass through unchanged
+- **Hook scripts stop swallowing stderr** — removed 19 instances of `2>/dev/null` across `mnemos-*.sh`, `icpg-*.sh`, and `tdd-loop-check.sh`. Python tracebacks and Python stderr now surface to Claude Code's hook diagnostics. Command substitution (`$(...)`) only captures stdout, so this doesn't affect any value parsing.
+
 ## [3.5.1] - 2026-04-21
 
 ### Fixed

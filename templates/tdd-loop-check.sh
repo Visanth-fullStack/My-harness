@@ -26,7 +26,7 @@ if [ "$count" -ge "$MAX_ITERATIONS" ]; then
 fi
 
 # Skip if no test files exist yet
-if ! find . -name "*.test.*" -o -name "*.spec.*" -o -name "test_*" 2>/dev/null | grep -q .; then
+if ! find . -name "*.test.*" -o -name "*.spec.*" -o -name "test_*" | grep -q .; then
     rm -f "$ITERATION_FILE"
     exit 0
 fi

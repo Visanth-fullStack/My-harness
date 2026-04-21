@@ -54,7 +54,7 @@ fatigue = {
 }
 with open('.mnemos/fatigue.json', 'w') as f:
     json.dump(fatigue, f)
-" 2>/dev/null
+"
 
 # ─── Step 2: Display — prefer ccusage, fallback to simple ───
 
@@ -89,6 +89,6 @@ try:
     print(f'Ctx:{used:.0f}%{s}')
 except:
     print('Ctx:?%')
-" 2>/dev/null
+"
 
 exit 0

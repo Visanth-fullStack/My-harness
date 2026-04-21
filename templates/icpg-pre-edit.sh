@@ -27,7 +27,7 @@ try:
     print(data.get('file_path', data.get('path', '')))
 except:
     pass
-" 2>/dev/null)
+")
 fi
 
 if [ -z "$FILE_PATH" ]; then
@@ -41,9 +41,9 @@ if ! command -v icpg &>/dev/null; then
 fi
 
 # Query context, constraints, and drift (file-scoped fast check)
-CONTEXT=$($ICPG_CMD query context "$FILE_PATH" 2>/dev/null)
-CONSTRAINTS=$($ICPG_CMD query constraints "$FILE_PATH" 2>/dev/null)
-DRIFT=$($ICPG_CMD drift file "$FILE_PATH" 2>/dev/null)
+CONTEXT=$($ICPG_CMD query context "$FILE_PATH")
+CONSTRAINTS=$($ICPG_CMD query constraints "$FILE_PATH")
+DRIFT=$($ICPG_CMD drift file "$FILE_PATH")
 
 # Only output if we have something
 if [ -n "$CONTEXT" ] || [ -n "$CONSTRAINTS" ] || [ -n "$DRIFT" ]; then
