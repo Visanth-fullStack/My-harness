@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.5.1] - 2026-04-21
+
+### Fixed
+- **PreToolUse hook "Bash hook error" on any tool call.** `templates/settings.json` declared hook commands as relative paths (`scripts/mnemos-*.sh`) that don't exist in most projects — the scripts live in `templates/` and nothing copies them to `<project>/scripts/`. Every tool call triggered a hook-not-found error shown as `PreToolUse:Bash hook error` in the session (non-blocking but noisy).
+- Hook commands now try `.claude/scripts/<name>.sh` first (project-local override), fall back to `$HOME/.claude/templates/<name>.sh` (always installed by `install.sh`), and no-op cleanly when neither exists. Applied to all 8 hook script references across `PreCompact`, `PreToolUse`, `PostToolUse`, `Stop`, and `SessionStart`.
+
+---
+
 ## [3.5.0] - 2026-04-19
 
 ### CI
