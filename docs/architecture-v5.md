@@ -684,6 +684,15 @@ Extend the 4-dimension fatigue model with model-relative normalization:
     → Changes on feature branch → PR created
     → Vercel preview deploy via isolated browser container
     → User reviews in Maggy dashboard
+    │
+    ▼
+11. PROCESS LEARNING (async, post-merge)
+    → Collect PR review comments + CodeRabbit findings
+    → Collect CI pass/fail results for Maggy-written code
+    → Track review rounds, time-to-merge, post-merge incidents
+    → Update process_patterns.db, ci_patterns.db, pr_patterns.db
+    → Feed reward registry: +0.5 first-round approval, -0.4 critical finding
+    → Adjust policy: add pre-checks, evolve skills, tune PR sizing
 ```
 
 ---
@@ -742,7 +751,9 @@ claude-bootstrap/
 │   │   │   ├── competitor.py     # Daily briefing
 │   │   │   ├── planner.py        # NEW: dual-model planning
 │   │   │   ├── budget.py         # NEW: token budget manager
-│   │   │   └── deploy.py         # NEW: isolated Vercel deploys
+│   │   │   ├── deploy.py         # NEW: isolated Vercel deploys
+│   │   │   ├── process.py        # NEW: process intelligence (env discovery, signal collection)
+│   │   │   └── forge.py          # NEW: MCP Forge integration (capability expansion)
 │   │   └── orchestrator.py       # NEW: multi-project orchestrator
 │   └── frontend/                 # React dashboard
 │       ├── ProjectRegistry.tsx   # NEW: multi-project view
@@ -803,7 +814,9 @@ claude-bootstrap/
 | **Phase 5** | Maggy v2 multi-project UI | Phases 1-4 |
 | **Phase 6** | Dual-model planning (Claude + Codex) | Phase 1 |
 | **Phase 7** | Isolated Vercel deploy containers | Docker |
-| **Phase 8** | Integration testing + docs | All phases |
+| **Phase 8** | Process intelligence (env discovery + signal collection) | Phase 5 + GitHub API |
+| **Phase 9** | MCP Forge integration (capability expansion) | Phase 5 + mcp_forge |
+| **Phase 10** | Integration testing + docs | All phases |
 
 ---
 
@@ -836,6 +849,8 @@ Every component in this architecture must be designed to wow, not just work.
 | Mnemos fatigue | "Context 80% full" | Silently checkpoints, switches models, re-injects context — user's train of thought is never interrupted |
 | Vercel deploy | "Run vercel deploy" | 4 projects deploy in parallel with zero auth conflicts, preview links appear in Maggy dashboard |
 | Code graph | "We indexed your repo" | "Maggy already knows every function, every caller, every route across all 36 projects — before you ask. It traced the blast radius in 10ms, not 10 minutes of grepping." |
+| Process intelligence | "Here are your CI results" | "Maggy learned that your reviewer always flags missing error handling — it added it before the PR was created. CI pass rate went from 72% to 97%. Review rounds dropped from 2.8 to 1.1. It didn't just fix the code, it fixed the process." |
+| Capability expansion | "We don't support that integration" | "Maggy built a Linear MCP server from the API docs, registered the tools, and pulled your sprint data — all within the same conversation." |
 | Dual-model planning | Two plans side by side | Conflicts highlighted, trade-offs explained, one-click approval with merged approach |
 
 ### The 5-second test for Maggy v2
@@ -845,6 +860,7 @@ A developer opens Maggy in the morning. Within 5 seconds they see:
 - Token budget status (green/yellow/red per provider)
 - Active agents and their progress
 - Yesterday's competitive intelligence briefing
+- Process health: CI pass rate, review rounds trend, CodeRabbit findings trend
 - One-click "Execute" on any ticket with the right model auto-selected
 
 That's the wow.
@@ -1021,6 +1037,319 @@ fatigue_profile:
 
 Maggy pre-checkpoints at 42 minutes (not at the generic 0.60 threshold) because it learned this user's fatigue pattern. No question asked — the reward signal showed that checkpoints at 42 minutes led to better post-checkpoint output (+0.3 reward) than checkpoints at 50 minutes (-0.2 reward from quality drop).
 
+#### 5. Process Intelligence — Learning from the Full SDLC
+
+Maggy doesn't just optimize code output. It optimizes the **entire development process** by observing what happens to code after it's written: PR reviews, CI results, CodeRabbit findings, reviewer feedback, merge patterns, and post-deploy incidents.
+
+##### 5a. Environment Discovery
+
+On first run per project, Maggy auto-discovers the developer's workflow. No configuration — it reads what's already there.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  ENVIRONMENT DISCOVERY (auto, per project)                     │
+│                                                               │
+│  Ticketing:                                                   │
+│    gh api repos/{owner}/{repo}/issues → GitHub Issues?        │
+│    .asana.yml / .linear/* / jira.config → which tracker?      │
+│    Maggy Inbox providers config → already connected?          │
+│                                                               │
+│  GitHub Integrations:                                         │
+│    gh api repos/{owner}/{repo}/hooks → webhooks               │
+│    gh api repos/{owner}/{repo}/installation → GitHub Apps     │
+│    PR comment authors → detect bots: coderabbitai[bot],       │
+│      dependabot[bot], renovate[bot], github-actions[bot]      │
+│                                                               │
+│  CI/CD:                                                       │
+│    .github/workflows/*.yml → GitHub Actions                   │
+│    Jenkinsfile / .circleci/ / .gitlab-ci.yml → other CI       │
+│    gh api repos/{owner}/{repo}/actions/runs → run history     │
+│                                                               │
+│  Code Quality:                                                │
+│    .eslintrc* / ruff.toml / .prettierrc → lint config         │
+│    mypy.ini / tsconfig.json → type checking                   │
+│    .pre-commit-config.yaml → pre-commit hooks                 │
+│    codecov.yml / .nycrc → coverage config                     │
+│                                                               │
+│  Review Process:                                              │
+│    gh api repos/{owner}/{repo}/branches/{b}/protection        │
+│      → required reviewers, status checks, merge rules         │
+│    CODEOWNERS → who reviews what                              │
+│    Average PR review rounds from git history                   │
+│                                                               │
+│  Output: ~/.maggy/environments/{project}.yaml                 │
+└──────────────────────────────────────────────────────────────┘
+```
+
+```yaml
+# ~/.maggy/environments/zensurveys-backend.yaml (auto-generated)
+ticketing: github_issues
+github_integrations:
+  - coderabbitai        # CodeRabbit AI reviews
+  - dependabot          # dependency updates
+  - vercel              # preview deploys
+ci:
+  provider: github_actions
+  workflows:
+    - test.yml          # pytest + coverage
+    - lint.yml          # ruff + mypy
+    - deploy.yml        # staging deploy
+lint:
+  python: [ruff, mypy]
+  config_files: [ruff.toml, mypy.ini]
+review:
+  required_approvals: 1
+  codeowners: true
+  branch_protection: staging-v2
+```
+
+##### 5b. Process Signal Collection
+
+Maggy subscribes to signals from every stage of the SDLC pipeline:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  PROCESS SIGNALS (collected per PR / per task)                │
+│                                                              │
+│  ┌─── REVIEW SIGNALS ────────────────────────────────────┐  │
+│  │                                                        │  │
+│  │  PR reviewer comments (human)                         │  │
+│  │    → "missing error handling in /api/surveys"          │  │
+│  │    → "this should be a transaction"                    │  │
+│  │    → "add tests for edge case"                         │  │
+│  │                                                        │  │
+│  │  CodeRabbit findings (automated)                      │  │
+│  │    → severity: critical/warning/suggestion             │  │
+│  │    → category: security/performance/style/bug          │  │
+│  │    → file + line + specific suggestion                 │  │
+│  │                                                        │  │
+│  │  Review rounds                                        │  │
+│  │    → PR needed 3 rounds before approval                │  │
+│  │    → First round had 8 comments, second had 2          │  │
+│  │                                                        │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│  ┌─── CI SIGNALS ────────────────────────────────────────┐  │
+│  │                                                        │  │
+│  │  GitHub Actions results                               │  │
+│  │    → test.yml: PASS (42s)                              │  │
+│  │    → lint.yml: FAIL — ruff: 3 errors, mypy: 1 error   │  │
+│  │    → deploy.yml: PASS (preview URL generated)          │  │
+│  │                                                        │  │
+│  │  Failure patterns                                     │  │
+│  │    → lint failures in files Maggy touched              │  │
+│  │    → test failures from code Maggy wrote               │  │
+│  │    → flaky tests (pass/fail on same code)              │  │
+│  │                                                        │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│  ┌─── POST-MERGE SIGNALS ────────────────────────────────┐  │
+│  │                                                        │  │
+│  │  Revert within 48h → code was bad                     │  │
+│  │  Hotfix within 7d  → code had latent bug              │  │
+│  │  Incident linked to PR → production impact            │  │
+│  │  Dependency alert (Dependabot/Renovate) → stale deps  │  │
+│  │                                                        │  │
+│  └────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+New reward signals for the registry:
+
+```
+PROCESS REWARD SIGNALS
+
++0.5  PR approved on first review round
++0.3  CI passes on first push (no re-push needed)
++0.2  CodeRabbit: zero critical/warning findings
++0.1  PR merged within 24h of creation
+
+-0.8  PR reverted within 48h
+-0.5  CI fails on Maggy-written code (lint or test)
+-0.4  CodeRabbit critical finding on Maggy-written code
+-0.3  PR requires 3+ review rounds
+-0.2  Reviewer flags same issue type Maggy was warned about before
+-0.1  CodeRabbit warning finding on Maggy-written code
+```
+
+##### 5c. Process Learning
+
+Maggy tracks patterns across three dimensions:
+
+**Code Pattern → Review Feedback:**
+```
+process_patterns.db:
+
+(api_route, missing_error_handling):
+  occurrences: 7
+  reviewers: ["alice", "coderabbitai"]
+  fix_pattern: "add try/except with proper HTTP error codes"
+  → LEARNED: always add error handling to API routes
+
+(database_query, missing_transaction):
+  occurrences: 4
+  reviewers: ["bob"]
+  fix_pattern: "wrap multi-table writes in transaction"
+  → LEARNED: multi-table writes need transactions
+
+(test_file, missing_edge_case):
+  occurrences: 12
+  reviewers: ["alice", "bob", "coderabbitai"]
+  fix_pattern: "test empty input, null, boundary values"
+  → LEARNED: always test edge cases (empty, null, boundary)
+```
+
+**File → CI Failure:**
+```
+ci_patterns.db:
+
+src/api/surveys.py:
+  lint_failures: 5 (ruff E501, E741)
+  type_errors: 2 (mypy: missing return type)
+  → LEARNED: this file needs strict lint pre-check
+
+tests/test_integration.py:
+  flaky_rate: 0.15 (fails 15% of runs on same code)
+  → LEARNED: mark as flaky, don't block on single failure
+
+src/services/auth.py:
+  ci_failures: 0 in 30 days
+  → LEARNED: auth code is well-tested, low CI risk
+```
+
+**PR Characteristics → Merge Velocity:**
+```
+pr_patterns.db:
+
+(size < 200 lines, single_concern):
+  avg_review_rounds: 1.2
+  avg_time_to_merge: 4h
+  → LEARNED: small focused PRs merge fast
+
+(size > 500 lines, multi_concern):
+  avg_review_rounds: 3.1
+  avg_time_to_merge: 48h
+  → LEARNED: split large PRs into stacked PRs
+
+(has_tests, covers_new_code):
+  approval_rate_first_round: 0.78
+  → LEARNED: tests increase first-round approval
+
+(no_tests, new_feature):
+  reviewer_comment_rate: 0.95
+  most_common: "please add tests"
+  → LEARNED: never submit new features without tests
+```
+
+##### 5d. Process Optimization — What Maggy Changes
+
+Based on learned patterns, Maggy autonomously adjusts its own behavior:
+
+| What Changes | Based On | Example |
+|-------------|---------|---------|
+| **Pre-task lint** | CI failure patterns | Maggy runs `ruff check` + `mypy` on its output before committing — prevents CI failures it has seen before |
+| **Skill evolution** | Recurring review comments | If reviewers flag "missing error handling" 7 times, Maggy adds the pattern to its skill files — future code includes error handling by default |
+| **PR sizing** | Merge velocity data | If PRs > 500 lines take 3x longer to merge, Maggy splits tasks into stacked PRs automatically |
+| **Test generation** | Reviewer feedback | If "add tests" is the most common review comment, Maggy ensures every PR includes tests for new code |
+| **CodeRabbit pre-check** | CodeRabbit finding patterns | If CodeRabbit consistently flags the same security issue, Maggy pre-validates against that pattern before pushing |
+| **Commit hygiene** | CI config + branch rules | Maggy matches commit message format, branch naming, and PR template to whatever the project enforces |
+
+```yaml
+# Added to ~/.maggy/policy.yaml
+process:
+  pre_commit_checks:
+    ruff: true                     # learned: lint failures cost -0.5
+    mypy: true                     # learned: type errors caught by CI
+    test_coverage_min: 80          # learned: PRs without coverage get rejected
+  pr_strategy:
+    max_lines: 400                 # learned: optimal size for this team
+    stacked_prs: true              # learned: large changes split = faster merge
+    require_tests: true            # learned: "add tests" is #1 review comment
+  review_prevention:
+    error_handling_api_routes: true # learned from 7 review comments
+    transaction_multi_writes: true # learned from 4 review comments
+    edge_case_tests: true          # learned from 12 review comments
+  coderabbit_precheck:
+    security_scan: true            # learned: CodeRabbit catches these
+    unused_imports: true           # learned: CodeRabbit flags these
+```
+
+##### 5e. The Process Intelligence Flywheel
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  PROCESS INTELLIGENCE FLYWHEEL                                │
+│                                                               │
+│  Week 1: Maggy discovers environment, starts collecting       │
+│    → Sees 5 lint failures, 3 "add tests" comments             │
+│    → Learns: run lint before push, always include tests       │
+│                                                               │
+│  Week 2: Maggy applies learned patterns                       │
+│    → Lint failures drop to 0 (pre-checked)                    │
+│    → "Add tests" comments drop to 1 (edge case missed)        │
+│    → Review rounds drop from 2.8 to 1.6 avg                  │
+│                                                               │
+│  Week 4: Maggy has enough data for deeper patterns            │
+│    → Learns that PRs touching auth need 2 reviewers           │
+│    → Learns that Friday PRs take 2x longer to merge           │
+│    → Starts scheduling auth PRs for Monday-Wednesday          │
+│                                                               │
+│  Week 8: Maggy evolves its own skills                         │
+│    → Writes new lint rules based on recurring review comments │
+│    → Generates pre-commit hooks for patterns that always fail │
+│    → Review round avg: 1.1 (down from 2.8)                   │
+│    → CI first-pass rate: 97% (up from 72%)                    │
+│    → Time-to-merge: 6h avg (down from 36h)                    │
+│                                                               │
+│  The wow: Maggy didn't just write better code.                │
+│  It made the entire development process faster.               │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### 6. Capability Expansion — MCP Forge Integration
+
+When Maggy encounters a capability gap — a workflow integration that doesn't exist — it doesn't stop. It builds one.
+
+**Source:** MCP Forge (`~/Documents/protaige/mcp_forge`) generates TypeScript MCP servers from API documentation.
+
+```
+Maggy task requires Mailchimp subscriber data
+    │
+    ├── search existing MCP tools → no Mailchimp tool found
+    │
+    ├── Forge: search registry (500+ APIs) → Mailchimp API found
+    │
+    ├── Forge: generate MCP server
+    │   → TypeScript MCP server with validated tool schemas
+    │   → Tools: list_segments, get_subscribers, campaign_stats
+    │
+    ├── Register new tools with Pi agent's MCP config
+    │
+    ├── Execute original task using new tools
+    │
+    └── Reward signal: did it work?
+        → +1.0: task completed with new tool
+        → -0.5: tool generated but failed at runtime
+```
+
+**Weekly gap analysis:**
+```
+capability_gaps.db:
+
+This week's unresolvable requests:
+  "check Linear sprint progress"    → 8 occurrences
+  "pull Slack channel activity"     → 5 occurrences
+  "get Figma design specs"          → 3 occurrences
+
+Top 3 gaps → trigger Forge generation:
+  1. Linear MCP server (sprint, issues, labels)
+  2. Slack MCP server (channels, messages, threads)
+  3. Figma MCP server (files, components, comments)
+
+After generation: capability surface grows autonomously.
+Hibernation policy: tools with < 3 uses in 14 days → disabled.
+```
+
 ### Self-Evaluation
 
 Maggy evaluates its own optimization quality on a weekly cycle:
@@ -1035,17 +1364,25 @@ Maggy evaluates its own optimization quality on a weekly cycle:
 │   Week 3: 3.1 tickets/day, 0.91 quality multiplier  ↑↓   │
 │   Week 4: 3.0 tickets/day, 0.95 quality multiplier  →↑   │
 │                                                           │
-│ Adjustments this week: 4                                  │
+│ Adjustments this week: 6                                  │
 │   ✓ Promoted kimi for test-writing (reward +0.7)          │
 │   ✓ Dropped codex review for blast < 3 (reward +0.1)     │
 │   ✗ Tried qwen for API routes — auto-rolled back         │
 │     (reward -0.4, 2 bug escapes detected at day 12)      │
 │   ✓ Pre-checkpoint moved to 40min (reward +0.3)          │
+│   ✓ Added error handling to API routes (review feedback)  │
+│   ✓ Enabled ruff pre-check (CI failure prevention)        │
+│                                                           │
+│ Process intelligence:                                     │
+│   CI first-pass rate: 94% (up from 72% at week 1)        │
+│   Review rounds avg: 1.3 (down from 2.8 at week 1)       │
+│   CodeRabbit critical findings: 0 (down from 4 at week 1)│
+│   Capability gaps filled: 2 (Linear, Slack via Forge)     │
 │                                                           │
 │ Auto-rollbacks this week: 1                               │
 │   qwen for API routes: reverted to kimi after 3 failures  │
 │                                                           │
-│ Overall efficiency delta: +12% vs 4 weeks ago             │
+│ Overall efficiency delta: +18% vs 4 weeks ago             │
 └──────────────────────────────────────────────────────────┘
 ```
 
@@ -1074,10 +1411,15 @@ exploration_rules:
   reward_registry.db      # SQLite: (action, context, reward, timestamp)
   model_scores.db         # SQLite: (model, task_type, blast_tier, reward_avg, n_samples)
   workflow_scores.db      # SQLite: (workflow_step, tier, reward_avg, n_samples)
+  process_patterns.db     # SQLite: (code_pattern, review_feedback, occurrences, fix_pattern)
+  ci_patterns.db          # SQLite: (file, failure_type, count, flaky_rate)
+  pr_patterns.db          # SQLite: (size_bucket, concern_count, avg_rounds, avg_merge_time)
+  capability_gaps.db      # SQLite: (request_type, occurrences, forge_status, tool_name)
   fatigue_profile.yaml    # Learned fatigue curve for this user
-  policy.yaml             # Current active policy (model routing, inbox weights, etc.)
+  policy.yaml             # Current active policy (model routing, inbox weights, process rules)
   policy_history/         # Timestamped snapshots for rollback
   self_eval.jsonl         # Weekly self-evaluation log
+  environments/           # Auto-discovered per-project workflow configs
 ```
 
 ```yaml
@@ -1118,6 +1460,29 @@ workflow:
     enabled_above_blast: 5      # learned: no value below 5
   pre_checkpoint_minutes: 40    # learned: user's fatigue curve
   exploration_rate: 0.10
+
+process:
+  pre_commit_checks:
+    ruff: true                     # learned: CI catches these
+    mypy: true                     # learned: type errors in CI
+    test_coverage_min: 80          # learned: PRs without coverage rejected
+  pr_strategy:
+    max_lines: 400                 # learned: optimal for this team
+    stacked_prs: true              # learned: faster merge for large changes
+    require_tests: true            # learned: #1 review comment is "add tests"
+  review_prevention:               # patterns learned from reviewer feedback
+    error_handling_api_routes: true
+    transaction_multi_writes: true
+    edge_case_tests: true
+  coderabbit_precheck:             # patterns learned from CodeRabbit
+    security_scan: true
+    unused_imports: true
+  scheduling:
+    avoid_friday_auth_prs: true    # learned: Friday auth PRs take 2x to merge
+  forge:
+    auto_expand: true              # generate new MCP tools for capability gaps
+    hibernation_days: 14           # disable unused forge tools after 14 days
+    min_gap_requests: 5            # require 5+ requests before triggering forge
 ```
 
 ### The Wow Factor
@@ -1125,6 +1490,8 @@ workflow:
 Maggy after 4 weeks:
 
 > "I didn't configure anything. I didn't set weights. I didn't tell it which model to use for what. It figured out that Claude is best for my auth code, Kimi writes my tests, and Qwen handles docs — by itself. It tried routing API routes to Qwen once, caught that it was producing bugs, and rolled it back before I even noticed. It knows I fatigue at 42 minutes and checkpoints at 40. My throughput is up 30% and my bug escape rate is down. I don't manage Maggy. Maggy manages my development."
+
+> "But the thing that blows me away is the process improvement. Maggy figured out that my team's reviewers always flag missing error handling on API routes — so now it adds error handling by default. It learned that our CI lint step fails on long lines — so it runs ruff before pushing. Our CodeRabbit findings dropped to zero. PRs that used to take 3 review rounds now merge on the first. And when I needed to pull data from Linear, Maggy generated a whole MCP integration on the fly — I didn't even know that was possible. It's not just writing better code. It's making the entire pipeline faster."
 
 That's the mWp. Not a tool. Not an assistant that asks questions. An autonomous system that optimizes itself with one goal: make its human as efficient as possible.
 
