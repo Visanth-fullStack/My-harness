@@ -922,46 +922,273 @@ Every action Maggy takes generates a reward signal. Positive rewards reinforce. 
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### The Self-Improvement Loop
+### Multi-Level Closed-Loop Control
 
-This is not observe → suggest → ask → wait. It's **observe → measure → adjust → evaluate → repeat**. Continuously. Autonomously.
+The previous version of this section described a flat observe → measure → adjust → evaluate loop. That's not a closed-loop system — that's batch processing with hope. A bad model routing decision on Monday would serve degraded output to every task until the weekly evaluation catches it.
+
+**Control theory insight: inner loops provide stability, outer loops provide optimization.** Level 0 keeps individual tasks from going off the rails. Level 2 keeps tools and models healthy day-to-day. Level 3 makes Maggy smarter week-over-week. Each level's output becomes an input signal for the level above it.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
+│  MULTI-LEVEL CLOSED-LOOP CONTROL                              │
 │                                                               │
-│    ┌──────────┐                                               │
-│    │ OBSERVE  │ Collect signals from every execution          │
-│    └────┬─────┘                                               │
-│         │  signals.jsonl, fatigue.json, git outcomes,         │
-│         │  deploy results, model telemetry                    │
-│         ▼                                                     │
-│    ┌──────────┐                                               │
-│    │ MEASURE  │ Compute reward per (action × context)         │
-│    └────┬─────┘                                               │
-│         │  reward_registry.db: action → reward score          │
-│         │  model_scores.db: model × task_type → reward        │
-│         │  workflow_scores.db: workflow_step → reward          │
-│         ▼                                                     │
-│    ┌──────────┐                                               │
-│    │ ADJUST   │ Update policies to maximize reward            │
-│    └────┬─────┘                                               │
-│         │  Model routing weights                              │
-│         │  Inbox priority weights                             │
-│         │  Workflow step inclusion/exclusion                   │
-│         │  Fatigue thresholds per model                        │
-│         │  Blast score → tier mapping boundaries              │
-│         │  Verification depth per model tier                   │
-│         ▼                                                     │
-│    ┌──────────┐                                               │
-│    │ EVALUATE │ Did the adjustment improve efficiency?        │
-│    └────┬─────┘                                               │
-│         │  Compare reward trend: this week vs last week       │
-│         │  If reward dropped: auto-rollback adjustment        │
-│         │  If reward flat: try next hypothesis                │
-│         │  If reward up: reinforce, expand to similar tasks   │
-│         │                                                     │
-│         └────────────► back to OBSERVE                        │
+│  Level 4 ─── Monthly (evolutionary) ──────────────────────── │
+│  │  Sensor:  cross-project trends, platform trajectory        │
+│  │  Actuator: new reward signals, new process patterns,       │
+│  │           blast→tier recalibration, exploration rate        │
+│  │  Bandwidth: weeks                                          │
+│  │                                                            │
+│  │  Level 3 ─── Weekly (strategic) ────────────────────────  │
+│  │  │  Sensor:  worst/best task patterns, score deltas,       │
+│  │  │          process pattern analysis, capability gaps      │
+│  │  │  Actuator: skill evolution, workflow step changes,      │
+│  │  │           model routing thresholds, MCP Forge,          │
+│  │  │           PR strategy, prompt patches                   │
+│  │  │  Bandwidth: days                                        │
+│  │  │                                                         │
+│  │  │  Level 2 ─── Daily (operational) ──────────────────   │
+│  │  │  │  Sensor:  CI pass rates, review round trends,        │
+│  │  │  │          CodeRabbit findings, model failure rates,   │
+│  │  │  │          token budget burn rate                       │
+│  │  │  │  Actuator: pre-commit check toggles, lint rules,     │
+│  │  │  │           model enable/disable, routing weights      │
+│  │  │  │  Bandwidth: hours                                    │
+│  │  │  │                                                      │
+│  │  │  │  Level 1 ─── Task (post-completion) ─────────────  │
+│  │  │  │  │  Sensor:  task reward score, CI results,          │
+│  │  │  │  │          iCPG drift, detect_changes scope,        │
+│  │  │  │  │          review comments on PR                    │
+│  │  │  │  │  Actuator: update model scores, log process       │
+│  │  │  │  │           signals, update fatigue profile          │
+│  │  │  │  │  Bandwidth: minutes                               │
+│  │  │  │  │                                                   │
+│  │  │  │  │  Level 0 ─── Real-time (within task) ──────────│
+│  │  │  │  │  │  Sensor:  tool success/fail, test pass/fail,  ││
+│  │  │  │  │  │          lint errors, Pi RPC events,          ││
+│  │  │  │  │  │          model response quality, fatigue      ││
+│  │  │  │  │  │  Actuator: switch model, retry with context,  ││
+│  │  │  │  │  │           adjust verification depth,          ││
+│  │  │  │  │  │           abort + re-plan, checkpoint          ││
+│  │  │  │  │  │  Bandwidth: seconds                           ││
+│  │  │  │  │  └───────────────────────────────────────────────┘│
+│  │  │  │  └──────────────────────────────────────────────────┘│
+│  │  │  └─────────────────────────────────────────────────────┘│
+│  │  └────────────────────────────────────────────────────────┘│
+│  └───────────────────────────────────────────────────────────┘│
+└──────────────────────────────────────────────────────────────┘
+
+Signal cascade (inner → outer):
+  L0 events aggregate into → L1 task reward
+  L1 task rewards aggregate into → L2 daily trends
+  L2 daily trends feed → L3 weekly pattern analysis
+  L3 weekly patterns feed → L4 monthly trajectory
+```
+
+#### Level 0 — Real-Time (Within Task Execution)
+
+This is the **stability loop** — the most critical and currently missing level. It keeps individual tasks from going off the rails *as they happen*, not after the damage is done.
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  LEVEL 0 — REAL-TIME CONTROL (seconds)                        │
 │                                                               │
+│  Pi agent executing task inside Polyphony container           │
+│       │                                                       │
+│       ├── Tool call fails (file not found, API error)         │
+│       │   → Retry with adjusted path/params (not new model)  │
+│       │   → If 3 consecutive fails: escalate model tier       │
+│       │                                                       │
+│       ├── Test fails during TDD green phase                   │
+│       │   → Analyze error: syntax? logic? missing import?     │
+│       │   → If model is struggling (3+ failed attempts):      │
+│       │     checkpoint + switch to higher-tier model           │
+│       │                                                       │
+│       ├── Lint error on written code                          │
+│       │   → Auto-fix (ruff --fix / eslint --fix)              │
+│       │   → If pattern repeats: flag for L2 (add pre-check)  │
+│       │                                                       │
+│       ├── Fatigue signal crosses threshold                    │
+│       │   → Mnemos auto-checkpoint                            │
+│       │   → If mid-task: consolidate context, continue        │
+│       │   → If near completion: push through, checkpoint after│
+│       │                                                       │
+│       ├── Model response quality degrades                     │
+│       │   → Detected by: repeated re-reads, circular edits,  │
+│       │     tool calls that undo previous tool calls          │
+│       │   → Action: checkpoint + model switch immediately     │
+│       │                                                       │
+│       └── Scope drift detected (iCPG)                         │
+│           → Agent touching files outside blast radius          │
+│           → Action: warn → constrain → abort if persistent    │
+│                                                               │
+│  All L0 events are logged to signals.jsonl with timestamps.   │
+│  They aggregate into the L1 task reward score.                │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**Why L0 matters more than any weekly patch:** If Maggy can detect mid-task that the current model is struggling and switch to a stronger one *within seconds*, that's worth more than a hundred policy adjustments. A user whose task fails experiences -1.0 reward. A user whose task recovers mid-flight via model switch experiences +0.1. The delta between "fail and retry tomorrow" and "hiccup and recover" is the entire product experience.
+
+**L0 signal types:**
+
+| Signal | Detection Method | Response Time | Action |
+|--------|-----------------|---------------|--------|
+| Tool failure | Pi RPC error event | < 1s | Retry with adjusted params |
+| Test failure | Exit code from test runner | < 5s | Analyze, fix, or escalate model |
+| Lint error | ruff/eslint output on written code | < 2s | Auto-fix or flag for L2 |
+| Fatigue spike | Mnemos threshold breach | < 1s | Checkpoint, consolidate, or switch |
+| Quality degradation | Circular edits, re-reads, undo patterns | ~30s | Checkpoint + model switch |
+| Scope drift | iCPG blast radius check on file access | < 1s | Warn → constrain → abort |
+| Model quota hit | Pi RPC quota/rate error | < 1s | Fallback chain activation |
+
+#### Level 1 — Task (Post-Completion, Minutes)
+
+After each task completes, compute the task reward score and update the per-model, per-task-type scores. This is the **learning loop** — every completed task teaches Maggy something.
+
+```
+Task completes (PR created or code landed)
+    │
+    ├── Compute task reward from L0 signals:
+    │   reward = Σ(signal_weight × signal_value)
+    │   adjusted for: model used, blast tier, task type
+    │
+    ├── Update model_scores.db:
+    │   (claude, auth, high) → new running average
+    │
+    ├── Update fatigue_profile:
+    │   session duration, checkpoint timing, recovery reads
+    │
+    ├── Log L0 events summary → L2 aggregation:
+    │   "3 tool retries, 1 model switch, 0 scope drifts"
+    │
+    └── Emit task_completed event → Maggy dashboard
+```
+
+#### Level 2 — Daily (Operational, Hours)
+
+Runs on a daily schedule (or triggered when a threshold is breached). Catches degradation before it compounds. This is the **operational health loop**.
+
+```
+Daily aggregation job:
+    │
+    ├── CI pass rate today vs 7-day average
+    │   → If dropped >10%: disable the model causing failures
+    │
+    ├── Review rounds today vs 7-day average
+    │   → If increased: check which code patterns are new
+    │
+    ├── CodeRabbit critical findings today
+    │   → If >0 on Maggy-written code: add pattern to pre-check
+    │
+    ├── Model failure rate by tier
+    │   → If a model's L0 failure signals spike: demote it
+    │
+    ├── Token budget burn rate
+    │   → If burning faster than expected: adjust routing to cheaper tier
+    │
+    └── Emergency trigger: if any metric drops >15% in one day
+        → Halt exploration, revert last policy change, alert
+```
+
+**Why L2 exists separately from L3:** A weekly batch can't catch a model that started failing on Tuesday. By Friday, that's 3 days of degraded tasks, 3 days of negative rewards accumulating. L2's daily check catches it within hours and disables the failing model before the damage compounds.
+
+#### Level 3 — Weekly (Strategic, Days)
+
+The deliberate optimization loop. Analyzes patterns across the week, proposes and applies policy changes with rollback windows. This is where skill evolution, workflow step changes, and MCP Forge generation happen.
+
+```
+Weekly strategic analysis:
+    │
+    ├── Worst 10 tasks this week: what went wrong?
+    │   → Common patterns → skill file patches
+    │   → Recurring reviewer comments → add to review prevention
+    │
+    ├── Best 10 tasks this week: what went right?
+    │   → Reinforce: model, workflow, blast tier settings
+    │
+    ├── Score deltas from last week's modifications
+    │   → delta < -0.2: auto-revert
+    │   → delta > +0.2: reinforce + expand to similar task types
+    │
+    ├── Process pattern analysis
+    │   → New (code_pattern, review_feedback) entries
+    │   → PR sizing effectiveness
+    │   → CI failure patterns
+    │
+    ├── Capability gap analysis
+    │   → Top unresolvable requests → trigger MCP Forge
+    │
+    └── Exploration candidates
+        → Select 10% of low-blast task types for next week's exploration
+```
+
+#### Level 4 — Monthly (Evolutionary, Weeks)
+
+The meta-optimization loop. Evaluates whether the control system itself is improving. Changes the reward signals, recalibrates tier boundaries, adjusts exploration rates. This is the loop that improves the improvement process.
+
+```
+Monthly evolution review:
+    │
+    ├── Cross-project patterns
+    │   → Are skills learned in project A useful in project B?
+    │   → Promote project-specific skills to global skills
+    │
+    ├── Reward signal effectiveness
+    │   → Is any signal consistently noisy? Reduce its weight
+    │   → Is a new signal needed? (e.g., deploy success rate)
+    │   → Add, remove, or reweight signals
+    │
+    ├── Tier boundary recalibration
+    │   → If blast 4-6 tasks are consistently handled well by
+    │     the cheap tier, lower the threshold: 0-4 = cheap
+    │   → If blast 3 tasks keep failing on cheap models,
+    │     raise it: 0-2 = cheap, 3+ = medium
+    │
+    ├── Exploration rate adjustment
+    │   → If exploration success rate > 40%: increase to 15%
+    │   → If exploration success rate < 10%: decrease to 5%
+    │
+    ├── Control loop tuning
+    │   → Is L2 catching issues that should be caught at L0?
+    │   → Are L0 model switches too aggressive or too cautious?
+    │   → Adjust L0 thresholds based on L1 outcome data
+    │
+    └── Platform trajectory
+        → Efficiency trend: improving, flat, or declining?
+        → If flat for 2+ months: the system has saturated
+          current strategy — try structural change
+```
+
+#### Signal Cascade — How Levels Feed Each Other
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  SIGNAL CASCADE                                               │
+│                                                               │
+│  L0: tool_fail, test_fail, lint_error, model_switch           │
+│   │  (raw events, seconds)                                    │
+│   ▼                                                           │
+│  L1: task_reward = f(L0_signals)                              │
+│   │  model_score[claude, auth, 8] += task_reward              │
+│   │  (per-task aggregation, minutes)                          │
+│   ▼                                                           │
+│  L2: daily_ci_rate = mean(L1.ci_pass for today)               │
+│   │  daily_model_health[claude] = mean(L1.rewards for claude) │
+│   │  (daily aggregation, hours)                               │
+│   │  ACTION: disable model if health < threshold              │
+│   ▼                                                           │
+│  L3: weekly_pattern = cluster(L2.failures + L1.review_comments│
+│   │  score_delta = this_week.reward - last_week.reward        │
+│   │  (weekly analysis, days)                                  │
+│   │  ACTION: evolve skills, adjust routing, trigger Forge     │
+│   ▼                                                           │
+│  L4: monthly_trajectory = trend(L3.score_deltas)              │
+│      reward_signal_weights = recalibrate(L3.signal_noise)     │
+│      (monthly meta-analysis, weeks)                           │
+│      ACTION: change reward function itself, adjust L0-L3      │
+│                                                               │
+│  Key: outer loops NEVER override inner loop stability.        │
+│  L3 can change routing policy, but L0 still catches in-task   │
+│  failures regardless of what L3 decided.                      │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -1415,9 +1642,11 @@ exploration_rules:
   ci_patterns.db          # SQLite: (file, failure_type, count, flaky_rate)
   pr_patterns.db          # SQLite: (size_bucket, concern_count, avg_rounds, avg_merge_time)
   capability_gaps.db      # SQLite: (request_type, occurrences, forge_status, tool_name)
+  improvement_ledger.db   # SQLite: all self-modifications with config snapshots + backtesting
+  task_history.db         # SQLite: every task with L0 events, reward, CI/review outcomes
   fatigue_profile.yaml    # Learned fatigue curve for this user
   policy.yaml             # Current active policy (model routing, inbox weights, process rules)
-  policy_history/         # Timestamped snapshots for rollback
+  policy_history/         # Timestamped snapshots for rollback (also in ledger.db)
   self_eval.jsonl         # Weekly self-evaluation log
   environments/           # Auto-discovered per-project workflow configs
 ```
@@ -1483,6 +1712,189 @@ process:
     auto_expand: true              # generate new MCP tools for capability gaps
     hibernation_days: 14           # disable unused forge tools after 14 days
     min_gap_requests: 5            # require 5+ requests before triggering forge
+```
+
+### Optimization Targets Mapped to Control Levels
+
+Each optimization target from Sections 1-6 now maps to a specific control level:
+
+| Target | L0 (seconds) | L1 (minutes) | L2 (hours) | L3 (days) | L4 (weeks) |
+|--------|:---:|:---:|:---:|:---:|:---:|
+| **1. Model routing** | Switch on failure/fatigue | Update (model,task,tier) score | Disable failing model | Adjust tier boundaries | Recalibrate blast→tier map |
+| **2. Inbox ordering** | — | — | — | Adjust type/project weights | Reweight signals |
+| **3. Workflow steps** | — | Log step value for task | — | Enable/disable steps by tier | Add/remove signal types |
+| **4. Fatigue** | Checkpoint on threshold | Update fatigue profile | — | Adjust checkpoint timing | Tune L0 thresholds |
+| **5. Process intelligence** | Lint before commit | Log CI/review signals | Toggle pre-checks | Evolve skills from patterns | Recalibrate process signals |
+| **6. Capability expansion** | — | Log capability gap | — | Forge top 3 gaps | Prune/archive unused tools |
+
+**L0 handles stability** (don't let a task fail). **L1-L2 handle health** (don't let bad patterns accumulate). **L3-L4 handle strategy** (make the system smarter over time).
+
+### Improvement Ledger — Full Auditability + Backtesting
+
+Every self-modification Maggy makes is recorded in the improvement ledger with full state snapshots. This serves three purposes: auditability (what changed and why), rollback (revert any change), and **backtesting** (would a policy have worked better on historical data?).
+
+#### Ledger Schema
+
+```sql
+-- ~/.maggy/improvement_ledger.db
+CREATE TABLE modifications (
+    id              INTEGER PRIMARY KEY,
+    timestamp       TEXT NOT NULL,
+    control_level   INTEGER NOT NULL,  -- 0-4
+    category        TEXT NOT NULL,     -- model_routing, process, workflow, etc.
+    description     TEXT NOT NULL,     -- human-readable what changed
+    reasoning       TEXT NOT NULL,     -- why the change was made (signal data)
+    config_before   TEXT NOT NULL,     -- full policy.yaml snapshot (JSON)
+    config_after    TEXT NOT NULL,     -- full policy.yaml snapshot (JSON)
+    score_before    REAL,             -- avg reward in measurement window before
+    score_after     REAL,             -- avg reward in measurement window after
+    delta           REAL,             -- score_after - score_before
+    status          TEXT DEFAULT 'active',  -- active, rolled_back, superseded
+    rolled_back_at  TEXT,             -- timestamp if reverted
+    rollback_reason TEXT              -- why it was reverted
+);
+
+CREATE TABLE task_history (
+    id              INTEGER PRIMARY KEY,
+    timestamp       TEXT NOT NULL,
+    project         TEXT NOT NULL,
+    task_type       TEXT NOT NULL,     -- auth, api_route, test, docs, etc.
+    blast_tier      INTEGER NOT NULL,  -- 0-10
+    model_used      TEXT NOT NULL,
+    policy_version  INTEGER NOT NULL,  -- which policy was active
+    l0_events       TEXT NOT NULL,     -- JSON array of L0 signals
+    l1_reward       REAL NOT NULL,     -- computed task reward
+    ci_passed       BOOLEAN,
+    review_rounds   INTEGER,
+    coderabbit_findings INTEGER,
+    time_to_merge_h REAL,
+    reverted        BOOLEAN DEFAULT FALSE,
+    bug_escape      BOOLEAN DEFAULT FALSE
+);
+```
+
+#### Backtesting: "Would This Policy Have Worked?"
+
+Before deploying a L3/L4 policy change, Maggy can **replay historical tasks** against the proposed policy to predict the outcome:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  BACKTEST: proposed policy v48 vs current policy v47          │
+│                                                               │
+│  Replaying 200 tasks from last 30 days...                     │
+│                                                               │
+│  Proposed change: route blast 3 tasks to qwen instead of kimi │
+│                                                               │
+│  Historical tasks at blast 3 (n=47):                          │
+│    Under kimi (actual):                                       │
+│      avg reward: +0.62                                        │
+│      CI pass rate: 91%                                        │
+│      review rounds: 1.4                                       │
+│                                                               │
+│    Under qwen (backtest simulation):                          │
+│      predicted reward: +0.38  ← LOWER                         │
+│      predicted CI pass rate: 78%  ← based on qwen's L0 data  │
+│      predicted review rounds: 2.1 ← based on qwen's L1 data  │
+│                                                               │
+│  VERDICT: DO NOT APPLY — backtest predicts -0.24 reward drop  │
+│                                                               │
+│  Alternative explored: route blast 1-2 to qwen, keep 3 on    │
+│  kimi. Backtest on blast 1-2 tasks (n=31):                    │
+│    kimi actual: +0.58                                         │
+│    qwen predicted: +0.71  ← HIGHER (simpler tasks = qwen OK) │
+│                                                               │
+│  VERDICT: APPLY partial — blast 1-2 to qwen, blast 3 stays   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**How backtesting works:**
+
+1. **Query `task_history`** for all tasks matching the target criteria (e.g., blast tier, task type)
+2. **For each historical task**, look up the proposed model's performance on similar `(task_type, blast_tier)` combinations from `model_scores.db`
+3. **Predict reward** using the proposed model's historical L0 signals (failure rate, lint errors, test pass rate) on similar tasks
+4. **Compare** predicted vs actual reward across the full set
+5. **Decision**: apply if predicted delta > +0.1, reject if < -0.1, flag for exploration if between
+
+**Backtesting is required for L3 and L4 changes.** L0-L2 changes are reactive (stability and health) and don't need backtesting — they respond to immediate signals. L3-L4 changes are strategic and can be validated against historical data first.
+
+#### Seeding: Bootstrap from Existing Data
+
+On first install, Maggy has no task history. But it can **seed the ledger from existing project data**:
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  SEED FROM EXISTING DATA                                      │
+│                                                               │
+│  Git history:                                                 │
+│    → Parse last 100 PRs: size, review rounds, time-to-merge  │
+│    → Parse CI runs: pass/fail rates per file                  │
+│    → Parse reverts: which PRs were reverted                   │
+│                                                               │
+│  GitHub API:                                                  │
+│    → PR review comments: categorize by pattern                │
+│    → CodeRabbit history: finding types and frequencies        │
+│    → Actions run history: failure patterns                    │
+│                                                               │
+│  Result: pre-populated databases                              │
+│    process_patterns.db: seeded with review comment patterns   │
+│    ci_patterns.db: seeded with CI failure history             │
+│    pr_patterns.db: seeded with merge velocity data            │
+│    task_history: synthetic entries from git log                │
+│                                                               │
+│  Cold start eliminated. Maggy knows the project's process     │
+│  health on day 1. Week 1 starts at L2, not L0.               │
+└──────────────────────────────────────────────────────────────┘
+```
+
+```bash
+# Seed command
+maggy seed --project zensurveys-backend --prs 100 --ci-runs 500
+
+# Output:
+# Seeded 847 process patterns from 100 PRs
+# Seeded 312 CI patterns from 500 runs
+# Seeded 100 synthetic task_history entries
+# Computed initial policy.yaml from historical data
+# Ready for L2+ control on day 1
+```
+
+This means you can **validate Maggy's improvement before it writes a single line of code**. Feed it 6 months of PR history, let it compute what policy it would have learned, and compare that policy against what actually happened. If Maggy's predicted policy would have reduced review rounds by 40%, that's validation before deployment.
+
+#### Ledger Queries — "How Did Maggy Improve Itself?"
+
+```sql
+-- Show all modifications, most recent first
+SELECT timestamp, control_level, category, description, delta, status
+FROM modifications ORDER BY timestamp DESC LIMIT 20;
+
+-- Show rolled-back changes (what went wrong?)
+SELECT timestamp, description, delta, rollback_reason
+FROM modifications WHERE status = 'rolled_back';
+
+-- Show cumulative improvement over time
+SELECT date(timestamp) as day,
+       sum(CASE WHEN delta > 0 THEN delta ELSE 0 END) as positive_delta,
+       sum(CASE WHEN delta < 0 THEN delta ELSE 0 END) as negative_delta,
+       sum(delta) as net_delta
+FROM modifications
+GROUP BY day ORDER BY day;
+
+-- Show which control level produces the most value
+SELECT control_level,
+       count(*) as modifications,
+       avg(delta) as avg_delta,
+       sum(CASE WHEN status = 'rolled_back' THEN 1 ELSE 0 END) as rollbacks
+FROM modifications
+GROUP BY control_level;
+
+-- Backtest: what would policy v48 have scored on last month's tasks?
+SELECT task_type, blast_tier,
+       avg(l1_reward) as actual_reward,
+       count(*) as n_tasks
+FROM task_history
+WHERE policy_version = 47
+  AND timestamp > date('now', '-30 days')
+GROUP BY task_type, blast_tier;
 ```
 
 ### The Wow Factor
