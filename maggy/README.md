@@ -1,6 +1,6 @@
 # Maggy
 
-**Generic AI engineering command center that ships with claude-bootstrap.**
+**Generic AI engineering command center.**
 
 Install once, point it at your team's GitHub (or Asana) and codebases, and get:
 
@@ -11,10 +11,10 @@ Install once, point it at your team's GitHub (or Asana) and codebases, and get:
 
 ## Install
 
-From wherever you cloned `claude-bootstrap`:
+From wherever you cloned Maggy:
 
 ```bash
-cd claude-bootstrap/maggy
+cd maggy/maggy
 ./install.sh
 ```
 
@@ -54,7 +54,7 @@ export ANTHROPIC_API_KEY=sk-ant-...
 ## Run
 
 ```bash
-cd claude-bootstrap/maggy
+cd maggy/maggy
 python3 -m maggy.main
 ```
 
@@ -62,7 +62,7 @@ Open `http://localhost:8080` (or whatever `dashboard.host:dashboard.port` you se
 
 ## From inside Claude Code
 
-Once claude-bootstrap is installed:
+Once Maggy is installed:
 
 ```
 /maggy-init   # interactive setup wizard
@@ -115,10 +115,10 @@ Key design decisions:
 
 1. **Provider abstraction** — `IssueTrackerProvider` Protocol. Services never see GitHub/Asana directly.
 2. **Config-driven** — zero hardcoded IDs, orgs, or competitor lists.
-3. **Reuses bootstrap's iCPG** — no duplicate symbol indexing.
+3. **Reuses Maggy's iCPG** — no duplicate symbol indexing.
 4. **SQLite-first** — single-user local install by default. Supabase optional for team mode.
 5. **Generic system prompt** — templated with your org/domain.
 
 ## License
 
-MIT — same as claude-bootstrap.
+MIT

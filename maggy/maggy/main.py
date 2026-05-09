@@ -51,7 +51,7 @@ def create_app() -> FastAPI:
                     cfg.issue_tracker.provider, len(cfg.codebases), cfg.org.domain or "unset")
     else:
         logger.warning("Maggy is not configured — edit ~/.maggy/config.yaml and restart.")
-        logger.warning("Copy claude-bootstrap/maggy/config.example.yaml to ~/.maggy/config.yaml")
+        logger.warning("Copy maggy/config.example.yaml to ~/.maggy/config.yaml")
         # Stay up so /api/health + /api/config can drive an onboarding UI,
         # but the runtime services are None — routes gate on app.state.configured
         # and return 503 instead of dereferencing.

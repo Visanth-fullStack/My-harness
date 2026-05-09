@@ -1,8 +1,8 @@
-# Claude Bootstrap v5 Architecture — Multi-Project, Multi-Model Command Center
+# Maggy v5 Architecture — Multi-Project, Multi-Model Command Center
 
 ## 1. Executive Summary
 
-v5 transforms claude-bootstrap from a single-project, single-model toolkit into a **multi-project, multi-model orchestration platform**. Pi replaces per-CLI adapters as the universal agent harness. Maggy becomes the central web dashboard. Token budgets are managed dynamically across providers. New features are validated against the competitive intelligence graph before engineering begins.
+v5 transforms Maggy from a single-project, single-model toolkit into a **multi-project, multi-model orchestration platform**. Pi replaces per-CLI adapters as the universal agent harness. Maggy becomes the central web dashboard. Token budgets are managed dynamically across providers. New features are validated against the competitive intelligence graph before engineering begins.
 
 ---
 
@@ -488,7 +488,7 @@ Each project has its own indexed graph. Maggy queries across them:
 │  └──────────────────┘  └──────────────────┘                  │
 │                                                               │
 │  ┌──────────────────┐  ┌──────────────────┐                  │
-│  │ chief-of-staff   │  │ claude-bootstrap │                  │
+│  │ chief-of-staff   │  │ maggy            │                  │
 │  │ 2,687 nodes      │  │ 4,692 nodes      │                  │
 │  │ 6,958 edges      │  │ 7,459 edges      │                  │
 │  └──────────────────┘  └──────────────────┘                  │
@@ -740,8 +740,8 @@ projects:
 ## 7. Component Map
 
 ```
-claude-bootstrap/
-├── maggy/                        # Maggy v2 — web dashboard
+maggy/
+├── dashboard/                        # Maggy v2 — web dashboard
 │   ├── src/
 │   │   ├── api/                  # FastAPI routes
 │   │   ├── providers/            # GitHub, Asana, Linear

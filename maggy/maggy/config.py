@@ -117,7 +117,7 @@ class MaggyConfig:
         return {c.key: Path(c.path).expanduser() for c in self.codebases}
 
     def resolve_bootstrap_path(self) -> Path | None:
-        """Find claude-bootstrap install. Checks config, then ~/.claude/.bootstrap-dir."""
+        """Find Maggy install. Checks config, then ~/.claude/.bootstrap-dir."""
         if self.bootstrap.path:
             return Path(self.bootstrap.path).expanduser()
         marker = Path.home() / ".claude" / ".bootstrap-dir"
