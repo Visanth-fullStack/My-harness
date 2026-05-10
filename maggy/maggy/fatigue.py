@@ -6,7 +6,7 @@ so that 0.6 means "approaching limit" regardless of model.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass

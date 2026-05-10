@@ -11,8 +11,9 @@ NODE_TYPES = (
 )
 
 EDGE_TYPES = (
-    "has_feature", "competes_with", "uses_technology",
-    "targets_segment", "related_to",
+    "has_feature", "competes_with", "targets_market",
+    "uses_technology", "protaige_has", "protaige_lacks",
+    "threatens",
 )
 
 

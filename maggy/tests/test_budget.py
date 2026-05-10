@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from maggy.budget import ProviderBudget, TaskSpendTracker
+from maggy.config import BudgetConfig
 from maggy.budget import BudgetManager
 
 
@@ -63,3 +65,53 @@ class TestIsExhausted:
         bm = BudgetManager(mock_cfg)
         bm.record_spend("anthropic", "claude", 11.0)
         assert bm.is_exhausted()
+
+
+class TestProviderBudgets:
+    def test_provider_exhaustion_uses_provider_limit(self, mock_cfg):
+        mock_cfg.budget = BudgetConfig(
+            daily_limit_usd=20.0,
+            providers=[
+                ProviderBudget("moonshot", 1.0, "kimi"),
+                ProviderBudget("openai", 5.0, "gpt"),
+            ],
+        )
+        bm = BudgetManager(mock_cfg)
+        bm.record_spend("moonshot", "kimi", 1.1)
+        assert bm.is_provider_exhausted("moonshot")
+        assert not bm.is_provider_exhausted("openai")
+
+    def test_cheapest_available_skips_exhausted_provider(self, mock_cfg):
+        mock_cfg.budget = BudgetConfig(
+            providers=[
+                ProviderBudget("moonshot", 1.0, "kimi"),
+                ProviderBudget("openai", 5.0, "gpt"),
+            ],
+        )
+        bm = BudgetManager(mock_cfg)
+        bm.record_spend("moonshot", "kimi", 1.0)
+        assert bm.cheapest_available() == "gpt"
+
+
+class TestTaskSpendTracker:
+    def test_records_total_cost(self) -> None:
+        tracker = TaskSpendTracker(5.0)
+        tracker.record(1.5)
+        tracker.record(0.5)
+        assert tracker.total() == 2.0
+
+    def test_detects_exceeded_spend(self) -> None:
+        tracker = TaskSpendTracker(2.0)
+        tracker.record(2.0)
+        assert tracker.is_exceeded()
+
+    def test_tracks_edit_loops(self) -> None:
+        tracker = TaskSpendTracker(5.0)
+        for _ in range(4):
+            tracker.record_edit("maggy/services/planner.py")
+        tracker.record_edit("maggy/budget.py")
+        assert tracker.detect_loop() == ["maggy/services/planner.py"]
+
+    def test_budget_config_has_task_limit(self) -> None:
+        cfg = BudgetConfig(max_spend_per_task=3.5)
+        assert cfg.max_spend_per_task == 3.5

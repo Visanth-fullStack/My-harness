@@ -11,44 +11,15 @@ def find_gaps(
     feature_name: str,
 ) -> MarketScore:
     """Score a feature against the competitive landscape."""
-    competitors = graph.list_nodes("competitor")
-    features = graph.list_nodes("feature")
-
-    matching = [
-        f for f in features
-        if feature_name.lower() in f.name.lower()
-    ]
-    if not matching:
-        return MarketScore(
-            feature=feature_name, gap_count=len(competitors),
-            threat_level="low", trend_alignment=0.0,
-            recommendation=f"No competitor has '{feature_name}' "
-                           f"— potential differentiator",
-        )
-
-    # Count competitors that have this feature
-    have_it = 0
-    for feat in matching:
-        edges = graph.get_edges(feat.id, "in")
-        have_it += len([
-            e for e in edges if e.edge_type == "has_feature"
-        ])
-
-    gap = len(competitors) - have_it
-    threat = "high" if have_it > len(competitors) * 0.7 else \
-             "medium" if have_it > len(competitors) * 0.3 else \
-             "low"
-
-    rec = (
-        f"{have_it}/{len(competitors)} competitors have this. "
-        f"{'Table stakes — must have.' if threat == 'high' else ''}"
-        f"{'Growing trend.' if threat == 'medium' else ''}"
-        f"{'Differentiator opportunity.' if threat == 'low' else ''}"
-    )
-
+    results = graph.find_gaps(feature_name)
+    have_it = sum(1 for item in results if item["status"] == "has")
+    gap = len(results) - have_it
+    threat = _threat_level(have_it, len(results))
     return MarketScore(
-        feature=feature_name, gap_count=gap,
-        threat_level=threat, recommendation=rec.strip(),
+        feature=feature_name,
+        gap_count=gap,
+        threat_level=threat,
+        recommendation=_gap_recommendation(feature_name, have_it, len(results), threat),
     )
 
 
@@ -57,23 +28,7 @@ def compare_entities(
     id_a: str, id_b: str,
 ) -> dict:
     """Compare two entities by their features."""
-    a_edges = graph.get_edges(id_a, "out")
-    b_edges = graph.get_edges(id_b, "out")
-
-    a_features = {
-        e.target_id for e in a_edges
-        if e.edge_type == "has_feature"
-    }
-    b_features = {
-        e.target_id for e in b_edges
-        if e.edge_type == "has_feature"
-    }
-
-    return {
-        "shared": list(a_features & b_features),
-        "only_a": list(a_features - b_features),
-        "only_b": list(b_features - a_features),
-    }
+    return graph.compare_entities(id_a, id_b)
 
 
 def get_landscape(
@@ -91,3 +46,30 @@ def get_landscape(
             c.name for c in competitors[:10]
         ],
     }
+
+
+def _gap_recommendation(
+    feature_name: str,
+    have_it: int,
+    total: int,
+    threat: str,
+) -> str:
+    if have_it == 0:
+        return f"No competitor has '{feature_name}' — potential differentiator"
+    suffix = {
+        "high": "Table stakes — must have.",
+        "medium": "Growing trend.",
+        "low": "Differentiator opportunity.",
+    }[threat]
+    return f"{have_it}/{total} competitors have this. {suffix}"
+
+
+def _threat_level(have_it: int, total: int) -> str:
+    if total == 0:
+        return "low"
+    ratio = have_it / total
+    if ratio > 0.7:
+        return "high"
+    if ratio > 0.3:
+        return "medium"
+    return "low"

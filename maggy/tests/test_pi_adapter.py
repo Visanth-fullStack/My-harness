@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock, patch
+
+import pytest
+
 from maggy.adapters.pi import (
-    DEFAULT_MODELS,
     ModelEntry,
     PiAdapter,
-    QUOTA_MARKERS,
-    RunResult,
 )
 
 
@@ -84,3 +85,65 @@ class TestBuildCommand:
         cmd = adapter._build_command(entry, "hello", 5)
         assert cmd[0] == "kimi"
         assert "--dangerously-skip-permissions" not in cmd
+
+
+class _FakeStream:
+    def __init__(self, lines: list[str]):
+        self._lines = list(lines)
+        self.writes: list[str] = []
+
+    def readline(self) -> str:
+        if self._lines:
+            return self._lines.pop(0)
+        return ""
+
+    def write(self, text: str) -> None:
+        self.writes.append(text)
+
+    def flush(self) -> None:
+        return None
+
+
+class _FakeProcess:
+    def __init__(self, stdout_lines: list[str]):
+        self.stdin = _FakeStream([])
+        self.stdout = _FakeStream(stdout_lines)
+
+
+class TestRpcMode:
+    def test_detect_pi_uses_path_lookup(self):
+        adapter = PiAdapter()
+        with patch("maggy.adapters.pi.shutil.which", return_value="/bin/pi"):
+            assert adapter._detect_pi() is True
+
+    def test_send_rpc_serializes_command(self):
+        adapter = PiAdapter()
+        proc = _FakeProcess(['{"ok": true}\n'])
+        with patch("maggy.adapters.pi.subprocess.Popen", return_value=proc):
+            result = adapter.send_rpc({"command": "ping"})
+        assert result == {"ok": True}
+        assert proc.stdin.writes == ['{"command":"ping"}\n']
+
+    def test_switch_model_uses_rpc(self):
+        adapter = PiAdapter()
+        adapter.send_rpc = MagicMock(return_value={"ok": True})
+        changed = adapter.switch_model("anthropic", "claude-sonnet-4")
+        assert changed is True
+        adapter.send_rpc.assert_called_once_with(
+            {
+                "command": "set_model",
+                "provider": "anthropic",
+                "model": "claude-sonnet-4",
+            }
+        )
+
+    @pytest.mark.asyncio
+    async def test_stream_events_reads_jsonl(self):
+        adapter = PiAdapter()
+        adapter._rpc_process = _FakeProcess(
+            ['{"type":"start"}\n', '{"type":"done"}\n', ""]
+        )
+        events = []
+        async for event in adapter.stream_events():
+            events.append(event)
+        assert events == [{"type": "start"}, {"type": "done"}]

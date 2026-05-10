@@ -9,8 +9,6 @@ from dataclasses import dataclass
 
 import httpx
 
-from .discovery import PeerInfo
-
 logger = logging.getLogger(__name__)
 
 GITHUB_API = "https://api.github.com"

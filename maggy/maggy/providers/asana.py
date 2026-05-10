@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import httpx
 
-from .base import Comment, IssueTrackerProvider, Task
+from .base import Comment, Task
 
 ASANA_BASE = "https://app.asana.com/api/1.0"
 

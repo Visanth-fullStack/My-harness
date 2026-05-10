@@ -174,7 +174,7 @@ def _seed_cikg(cikg, cfg) -> None:
     """Build initial knowledge graph from configured codebases."""
     from datetime import datetime, timezone
 
-    from maggy.cikg.models import Edge, Node
+    from maggy.cikg.models import Node
 
     now = datetime.now(timezone.utc).isoformat()
     for cb in cfg.codebases:

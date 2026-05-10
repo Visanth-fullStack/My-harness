@@ -139,3 +139,57 @@ class TestQueries:
         g = self._seed_graph(tmp_path)
         result = compare_entities(g, "c0", "c1")
         assert "f1" in result["shared"]
+
+
+class TestServiceQueries:
+    def _seed_graph(self, tmp_path: Path) -> KnowledgeGraphService:
+        g = KnowledgeGraphService(tmp_path / "cikg.db")
+        g.add_node(Node(id="c0", node_type="competitor", name="Alpha"))
+        g.add_node(Node(id="c1", node_type="competitor", name="Bravo"))
+        g.add_node(Node(id="c2", node_type="competitor", name="Charlie"))
+        g.add_node(Node(id="f1", node_type="feature", name="SSO"))
+        g.add_node(Node(id="f2", node_type="feature", name="AI Chat"))
+        g.add_node(Node(id="t1", node_type="technology", name="React"))
+        g.add_node(Node(id="s1", node_type="market_segment", name="SMB"))
+        g.add_node(Node(id="s2", node_type="market_segment", name="Enterprise"))
+        g.add_edge(Edge("c0", "f1", "has_feature"))
+        g.add_edge(Edge("c1", "f1", "has_feature"))
+        g.add_edge(Edge("c1", "f2", "has_feature"))
+        g.add_edge(Edge("c0", "c1", "competes_with"))
+        g.add_edge(Edge("c0", "t1", "uses_technology"))
+        g.add_edge(Edge("c1", "t1", "uses_technology"))
+        g.add_edge(Edge("c0", "s1", "targets_market"))
+        g.add_edge(Edge("c1", "s1", "targets_market"))
+        g.add_edge(Edge("c2", "s2", "targets_market"))
+        g.add_edge(Edge("c1", "c0", "threatens"))
+        return g
+
+    def test_find_gaps(self, tmp_path: Path):
+        g = self._seed_graph(tmp_path)
+        result = g.find_gaps("SSO")
+        assert {item["entity"] for item in result} == {
+            "Alpha", "Bravo", "Charlie",
+        }
+        status = {item["entity"]: item["status"] for item in result}
+        assert status == {
+            "Alpha": "has",
+            "Bravo": "has",
+            "Charlie": "lacks",
+        }
+
+    def test_compare_entities(self, tmp_path: Path):
+        g = self._seed_graph(tmp_path)
+        result = g.compare_entities("c0", "c1")
+        assert result["shared"] == ["f1"]
+        assert result["only_a"] == []
+        assert result["only_b"] == ["f2"]
+        assert result["relationships"][0]["edge_type"] == "competes_with"
+
+    def test_get_landscape(self, tmp_path: Path):
+        g = self._seed_graph(tmp_path)
+        result = g.get_landscape("SMB")
+        assert result["segment"] == "SMB"
+        assert result["competitors"] == 2
+        assert result["features_tracked"] == 2
+        assert result["technologies"] == 1
+        assert result["threat_count"] == 1

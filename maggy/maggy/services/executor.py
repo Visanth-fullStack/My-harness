@@ -7,15 +7,18 @@ working directory based on ticket keywords and configured codebase paths.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+from maggy.adapters.pi import PiAdapter, RunResult
+from maggy.budget import BudgetManager
 from maggy.config import MaggyConfig
+from maggy.process.model_router import RoutingDecision
 from maggy.providers.base import IssueTrackerProvider, Task
+from maggy.routing import RoutingContext, RoutingService
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +29,9 @@ class ExecutorService:
     def __init__(self, cfg: MaggyConfig, provider: IssueTrackerProvider):
         self.cfg = cfg
         self.provider = provider
+        self._pi = PiAdapter()
+        self._routing = RoutingService(cfg)
+        self._budget = BudgetManager(cfg)
         self._sessions: dict[str, dict] = {}
         # Hold strong refs to in-flight background tasks — asyncio.create_task
         # returns a weakly-held Task, so without storing it the garbage collector
@@ -137,80 +143,169 @@ class ExecutorService:
     async def _run(self, session_id: str, task: Task, wd: str, mode: str) -> None:
         session = self._sessions[session_id]
         try:
-            # 1. Build iCPG context (if bootstrap's iCPG is available)
             icpg_ctx = await self._build_icpg_context(task, wd)
-
-            icpg_block = f"\n\n{icpg_ctx}\n" if icpg_ctx else ""
-
             if mode == "plan":
-                prompt = (
-                    f"Create an implementation plan for this ticket. No code changes — just a plan.\n\n"
-                    f"Ticket: {task.title}\n{task.description[:1500]}"
-                    f"{icpg_block}\n"
-                    f"Output: numbered steps, files to touch, risks, tests to add."
-                )
-                ok, output = await self._run_claude(prompt, wd, max_turns=5)
-                session["output"] = output[:10000]
-                session["status"] = "completed" if ok else "failed"
-                if not ok:
-                    session["error"] = output[:500]
-                # Post back to ticket only if the plan actually succeeded
-                if ok and output:
-                    try:
-                        await self.provider.add_comment(task.id, f"## Maggy Plan\n\n{output[:4000]}")
-                    except Exception as e:
-                        logger.warning("Failed to post plan: %s", e)
+                await self._run_plan(session, task, wd, icpg_ctx)
                 return
-
-            # TDD mode: plan → tests → implement. Abort the chain on first failure —
-            # running "implement" after a failed "analyze" wastes tokens.
-            analysis_prompt = (
-                f"Analyze this ticket against the codebase and output a concise plan.\n"
-                f"Identify: files to change, functions affected, tests needed, risks.\n\n"
-                f"Ticket: {task.title}\n{task.description[:1500]}"
-                f"{icpg_block}"
-            )
-            ok, analysis = await self._run_claude(analysis_prompt, wd, max_turns=5)
-            session["output"] += f"\n=== ANALYZE ===\n{analysis[:2000]}\n"
-            if not ok:
-                session["status"] = "failed"
-                session["error"] = f"Analyze step failed: {analysis[:300]}"
-                return
-
-            tests_prompt = (
-                f"Write failing test cases for this ticket (TDD — no implementation yet).\n"
-                f"Use the project's existing test patterns. Commit tests separately.\n\n"
-                f"Ticket: {task.title}\n{task.description[:1500]}"
-                f"{icpg_block}\n"
-                f"Analysis:\n{analysis[:1000]}"
-            )
-            ok, tests_out = await self._run_claude(tests_prompt, wd, max_turns=15)
-            session["output"] += f"\n=== WRITE TESTS ===\n{tests_out[:2000]}\n"
-            if not ok:
-                session["status"] = "failed"
-                session["error"] = f"Write-tests step failed: {tests_out[:300]}"
-                return
-
-            impl_prompt = (
-                f"Implement the feature to make the failing tests pass.\n"
-                f"Follow existing code patterns. Keep changes minimal.\n\n"
-                f"Ticket: {task.title}\n{task.description[:1500]}"
-                f"{icpg_block}\n"
-                f"Run tests to verify, then commit with a conventional commit message."
-            )
-            ok, impl_out = await self._run_claude(impl_prompt, wd, max_turns=25)
-            session["output"] += f"\n=== IMPLEMENT ===\n{impl_out[:2000]}\n"
-            if not ok:
-                session["status"] = "failed"
-                session["error"] = f"Implement step failed: {impl_out[:300]}"
-                return
-
-            session["status"] = "completed"
-            session["completed_at"] = datetime.now(timezone.utc).isoformat()
+            await self._run_tdd(session, task, wd, icpg_ctx)
         except Exception as e:
             logger.exception("Execution failed")
             session["status"] = "failed"
             session["error"] = str(e)
+
+    async def _run_plan(
+        self, session: dict, task: Task, wd: str, icpg_ctx: str,
+    ) -> None:
+        result = await self._run_model(
+            task, self._plan_prompt(task, icpg_ctx), wd, 5,
+        )
+        session["output"] = result.output[:10000]
+        session["status"] = "completed" if result.success else "failed"
+        if not result.success:
+            session["error"] = result.output[:500]
+            return
+        if result.output:
+            await self._post_plan(task.id, result.output)
+
+    async def _run_tdd(
+        self, session: dict, task: Task, wd: str, icpg_ctx: str,
+    ) -> None:
+        ok, analysis = await self._run_step(
+            session, "ANALYZE", self._analysis_prompt(task, icpg_ctx),
+            task, wd, 5,
+        )
+        if not ok:
+            session["error"] = f"Analyze step failed: {analysis[:300]}"
+            return
+        ok, output = await self._run_step(
+            session, "WRITE TESTS", self._tests_prompt(task, icpg_ctx, analysis),
+            task, wd, 15,
+        )
+        if not ok:
+            session["error"] = f"Write-tests step failed: {output[:300]}"
+            return
+        ok, output = await self._run_step(
+            session, "IMPLEMENT", self._impl_prompt(task, icpg_ctx),
+            task, wd, 25,
+        )
+        if not ok:
+            session["error"] = f"Implement step failed: {output[:300]}"
+            return
+        session["status"] = "completed"
+        session["completed_at"] = datetime.now(timezone.utc).isoformat()
+
+    async def _run_step(
+        self,
+        session: dict,
+        label: str,
+        prompt: str,
+        task: Task,
+        wd: str,
+        max_turns: int,
+    ) -> tuple[bool, str]:
+        result = await self._run_model(task, prompt, wd, max_turns)
+        session["output"] += f"\n=== {label} ===\n{result.output[:2000]}\n"
+        if not result.success:
+            session["status"] = "failed"
+        return result.success, result.output
+
+    async def _run_model(
+        self, task: Task, prompt: str, wd: str, max_turns: int,
+    ) -> RunResult:
+        decision = self._route_model(task)
+        model_name = self._model_name(decision.primary)
+        result = await self._pi.send_with_fallback(
+            model_name, prompt, wd, max_turns,
+        )
+        if result.cost_usd > 0:
+            self._budget.record_spend(
+                decision.primary.provider,
+                result.model,
+                result.cost_usd,
+            )
+        return result
+
+    def _route_model(self, task: Task) -> RoutingDecision:
+        raw = task.raw if isinstance(task.raw, dict) else {}
+        task_type = str(raw.get("task_type") or self._task_type(task))
+        return self._routing.route(
+            RoutingContext(
+                blast_score=self._int_value(raw.get("blast_score")),
+                task_type=task_type,
+                security_sensitive=self._security_flag(raw, task_type),
+                project_key=str(raw.get("project_key") or task.board),
+            )
+        )
+
+    def _task_type(self, task: Task) -> str:
+        if task.labels:
+            return task.labels[0]
+        return "general"
+
+    def _security_flag(
+        self, raw: dict[str, object], task_type: str,
+    ) -> bool:
+        if "security_sensitive" in raw:
+            return bool(raw["security_sensitive"])
+        return task_type in {"security", "auth", "billing"}
+
+    def _int_value(self, value: object) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return 0
+
+    def _model_name(self, primary: object) -> str:
+        if isinstance(primary, str):
+            return primary
+        return str(primary.name)
+
+    def _plan_prompt(self, task: Task, icpg_ctx: str) -> str:
+        return (
+            "Create an implementation plan for this ticket. No code changes — just a plan.\n\n"
+            f"Ticket: {task.title}\n{task.description[:1500]}"
+            f"{self._icpg_block(icpg_ctx)}\n"
+            "Output: numbered steps, files to touch, risks, tests to add."
+        )
+
+    def _analysis_prompt(self, task: Task, icpg_ctx: str) -> str:
+        return (
+            "Analyze this ticket against the codebase and output a concise plan.\n"
+            "Identify: files to change, functions affected, tests needed, risks.\n\n"
+            f"Ticket: {task.title}\n{task.description[:1500]}"
+            f"{self._icpg_block(icpg_ctx)}"
+        )
+
+    def _tests_prompt(self, task: Task, icpg_ctx: str, analysis: str) -> str:
+        return (
+            "Write failing test cases for this ticket (TDD — no implementation yet).\n"
+            "Use the project's existing test patterns. Commit tests separately.\n\n"
+            f"Ticket: {task.title}\n{task.description[:1500]}"
+            f"{self._icpg_block(icpg_ctx)}\n"
+            f"Analysis:\n{analysis[:1000]}"
+        )
+
+    def _impl_prompt(self, task: Task, icpg_ctx: str) -> str:
+        return (
+            "Implement the feature to make the failing tests pass.\n"
+            "Follow existing code patterns. Keep changes minimal.\n\n"
+            f"Ticket: {task.title}\n{task.description[:1500]}"
+            f"{self._icpg_block(icpg_ctx)}\n"
+            "Run tests to verify, then commit with a conventional commit message."
+        )
+
+    def _icpg_block(self, icpg_ctx: str) -> str:
+        if not icpg_ctx:
+            return ""
+        return f"\n\n{icpg_ctx}\n"
+
+    async def _post_plan(self, task_id: str, output: str) -> None:
+        try:
+            await self.provider.add_comment(
+                task_id, f"## Maggy Plan\n\n{output[:4000]}",
+            )
+        except Exception as e:
+            logger.warning("Failed to post plan: %s", e)
 
     async def _build_icpg_context(self, task: Task, wd: str) -> str:
         """Query Maggy's iCPG CLI for symbols/blast radius/prior intents.

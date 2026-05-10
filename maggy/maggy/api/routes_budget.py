@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Header, Request
 
-from .auth import check_auth, require_configured
+from .auth import check_auth
 
 router = APIRouter(prefix="/api/budget", tags=["budget"])
 

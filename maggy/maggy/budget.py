@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import sqlite3
+import tempfile
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Iterator
@@ -13,16 +15,24 @@ from maggy.config import MaggyConfig
 
 @contextmanager
 def _connect(path: Path) -> Iterator[sqlite3.Connection]:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path), timeout=30.0)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=30000")
-    conn.row_factory = sqlite3.Row
+    try:
+        conn = _open_conn(path)
+    except sqlite3.OperationalError:
+        fallback = Path(tempfile.gettempdir()) / "maggy" / path.name
+        conn = _open_conn(fallback)
     try:
         yield conn
     finally:
         conn.close()
 
+
+def _open_conn(path: Path) -> sqlite3.Connection:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(path), timeout=30.0)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
+    conn.row_factory = sqlite3.Row
+    return conn
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS spend (
@@ -38,11 +48,52 @@ CREATE INDEX IF NOT EXISTS idx_spend_day
 """
 
 
+@dataclass(frozen=True)
+class ProviderBudget:
+    """Budget limit and preferred model for a provider."""
+
+    provider: str
+    daily_limit_usd: float
+    model_preference: str
+
+
+class TaskSpendTracker:
+    """Track task-level spend and repeated edits."""
+
+    def __init__(self, max_spend: float):
+        self.max_spend = max_spend
+        self._spent = 0.0
+        self.files_edited: dict[str, int] = {}
+
+    def record(self, cost: float) -> None:
+        self._spent += cost
+
+    def total(self) -> float:
+        return self._spent
+
+    def is_exceeded(self) -> bool:
+        return self._spent >= self.max_spend
+
+    def record_edit(self, file_path: str) -> None:
+        count = self.files_edited.get(file_path, 0)
+        self.files_edited[file_path] = count + 1
+
+    def detect_loop(self, threshold: int = 3) -> list[str]:
+        return [
+            path for path, count in self.files_edited.items()
+            if count >= threshold
+        ]
+
+
 class BudgetManager:
     """Track token spend per provider with daily limits."""
 
     def __init__(self, cfg: MaggyConfig):
         self.daily_limit = cfg.budget.daily_limit_usd
+        self.providers = list(cfg.budget.providers)
+        self._provider_budgets = {
+            item.provider: item for item in self.providers
+        }
         self.warning_threshold = cfg.budget.warning_threshold
         db_dir = Path(cfg.storage.path).expanduser().parent
         self._db_path = db_dir / "budget.db"
@@ -133,3 +184,17 @@ class BudgetManager:
         """Check if daily budget is exhausted."""
         spent = self.today_spend(provider)
         return spent >= self.daily_limit
+
+    def is_provider_exhausted(self, provider: str) -> bool:
+        """Check provider-specific budget when configured."""
+        budget = self._provider_budgets.get(provider)
+        if budget is None:
+            return self.is_exhausted(provider)
+        return self.today_spend(provider) >= budget.daily_limit_usd
+
+    def cheapest_available(self) -> str | None:
+        """Return preferred model for the first provider with budget left."""
+        for budget in self.providers:
+            if not self.is_provider_exhausted(budget.provider):
+                return budget.model_preference
+        return None

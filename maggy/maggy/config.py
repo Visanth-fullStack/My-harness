@@ -3,14 +3,36 @@
 from __future__ import annotations
 
 import os
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
 CONFIG_DIR = Path(os.environ.get("MAGGY_HOME", "~/.maggy")).expanduser()
 CONFIG_PATH = CONFIG_DIR / "config.yaml"
+
+if TYPE_CHECKING:
+    from maggy.budget import ProviderBudget
+
+
+def _default_storage_path() -> str:
+    return _safe_storage_path(CONFIG_DIR / "maggy.db")
+
+
+def _safe_storage_path(path: str | Path) -> str:
+    target = Path(path).expanduser()
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        probe = target.parent / ".write-test"
+        probe.write_text("")
+        probe.unlink()
+        return str(target)
+    except OSError:
+        fallback = Path(tempfile.gettempdir()) / "maggy" / "maggy.db"
+        fallback.parent.mkdir(parents=True, exist_ok=True)
+        return str(fallback)
 
 
 @dataclass
@@ -49,6 +71,16 @@ class CodebaseConfig:
 
 
 @dataclass
+class ProjectConfig:
+    name: str
+    repo: str
+    path: str
+    default_branch: str
+    icpg: bool = True
+    cikg: bool = False
+
+
+@dataclass
 class OKRItem:
     id: str
     title: str
@@ -78,7 +110,7 @@ class AIConfig:
 @dataclass
 class StorageConfig:
     backend: str = "sqlite"
-    path: str = "~/.maggy/maggy.db"
+    path: str = field(default_factory=_default_storage_path)
 
 
 @dataclass
@@ -113,7 +145,9 @@ class ModelTierConfig:
 @dataclass
 class BudgetConfig:
     daily_limit_usd: float = 10.0
+    max_spend_per_task: float = 5.0
     warning_threshold: float = 0.8
+    providers: list["ProviderBudget"] = field(default_factory=list)
 
 
 @dataclass
@@ -150,6 +184,7 @@ class MaggyConfig:
     org: OrgConfig = field(default_factory=OrgConfig)
     issue_tracker: IssueTrackerConfig = field(default_factory=IssueTrackerConfig)
     codebases: list[CodebaseConfig] = field(default_factory=list)
+    projects: list[ProjectConfig] = field(default_factory=list)
     competitors: CompetitorsConfig = field(default_factory=CompetitorsConfig)
     okrs: OKRConfig = field(default_factory=OKRConfig)
     ai: AIConfig = field(default_factory=AIConfig)
@@ -197,6 +232,8 @@ def _git_credential_token() -> str:
 
 def _from_dict(data: dict[str, Any]) -> MaggyConfig:
     """Build MaggyConfig from loaded YAML dict. Tolerates missing sections."""
+    from maggy.budget import ProviderBudget
+
     it_raw = data.get("issue_tracker") or {}
     tracker = IssueTrackerConfig(
         provider=it_raw.get("provider", "github"),
@@ -219,18 +256,34 @@ def _from_dict(data: dict[str, Any]) -> MaggyConfig:
             for t in (routing_raw.get("tiers") or [])
         ],
     )
+    budget_raw = data.get("budget") or {}
+    providers = [
+        ProviderBudget(**item)
+        for item in (budget_raw.get("providers") or [])
+    ]
+    storage_raw = data.get("storage") or {}
 
     return MaggyConfig(
         org=OrgConfig(**(data.get("org") or {})),
         issue_tracker=tracker,
         codebases=[CodebaseConfig(**c) for c in (data.get("codebases") or [])],
+        projects=[ProjectConfig(**p) for p in (data.get("projects") or [])],
         competitors=CompetitorsConfig(**(data.get("competitors") or {})),
         okrs=okrs,
         ai=AIConfig(**(data.get("ai") or {})),
-        storage=StorageConfig(**(data.get("storage") or {})),
+        storage=StorageConfig(
+            backend=storage_raw.get("backend", "sqlite"),
+            path=_safe_storage_path(
+                storage_raw.get("path", _default_storage_path())
+            ),
+        ),
         dashboard=DashboardConfig(**(data.get("dashboard") or {})),
         bootstrap=BootstrapConfig(**(data.get("bootstrap") or {})),
-        budget=BudgetConfig(**(data.get("budget") or {})),
+        budget=BudgetConfig(
+            daily_limit_usd=budget_raw.get("daily_limit_usd", 10.0),
+            warning_threshold=budget_raw.get("warning_threshold", 0.8),
+            providers=providers,
+        ),
         routing=routing,
         mesh=MeshConfig(**(data.get("mesh") or {})),
         heartbeat=HeartbeatConfig(**(data.get("heartbeat") or {})),
@@ -267,7 +320,7 @@ def auto_configure(
     persist: bool = True,
 ) -> MaggyConfig:
     """Build config from auto-discovery."""
-    from maggy.discovery import full_discovery, infer_github_org
+    from maggy.discovery import full_discovery
     result = full_discovery(home)
     cfg = MaggyConfig(
         codebases=[

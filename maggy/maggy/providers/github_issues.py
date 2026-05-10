@@ -6,7 +6,7 @@ import logging
 
 import httpx
 
-from .base import Comment, IssueTrackerProvider, Task
+from .base import Comment, Task
 
 logger = logging.getLogger(__name__)
 

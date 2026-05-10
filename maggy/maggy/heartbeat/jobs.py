@@ -52,7 +52,6 @@ def _is_expired(rec, now) -> bool:
     created = rec.created_at
     if not created:
         return False
-    from datetime import timedelta
     created_dt = datetime.fromisoformat(created)
     return (now - created_dt).total_seconds() > ttl * 3600
 

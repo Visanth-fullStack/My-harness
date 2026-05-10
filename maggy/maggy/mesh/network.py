@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-from .discovery import PeerInfo, PeerRegistry
+from .discovery import PeerRegistry
 from .quarantine import QuarantineStore
 from .store import MeshStore
 from .sync import SyncEngine

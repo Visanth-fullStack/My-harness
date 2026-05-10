@@ -7,11 +7,10 @@ Learns from reward scores over time.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from maggy.config import MaggyConfig
 from maggy.process.model_router import (
-    DEFAULT_TIERS,
     RoutingDecision,
     route_task,
 )

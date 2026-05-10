@@ -65,7 +65,7 @@ def _scan_processes() -> list[ActiveSession]:
     except (subprocess.SubprocessError, OSError):
         return []
     return _parse_claude_processes(
-        [l for l in lines if "claude" in l.lower()],
+        [line for line in lines if "claude" in line.lower()],
     )
 
 
@@ -272,7 +272,7 @@ def _tail_lines(path: Path, n: int) -> list[str]:
     """Read last N non-empty lines from a file."""
     try:
         lines = path.read_text().splitlines()
-        return [l for l in lines if l.strip()][-n:]
+        return [line for line in lines if line.strip()][-n:]
     except OSError:
         return []
 

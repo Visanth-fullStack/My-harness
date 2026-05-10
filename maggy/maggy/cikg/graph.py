@@ -1,55 +1,13 @@
-"""KnowledgeGraphService — CRUD for CIKG nodes and edges."""
+"""KnowledgeGraphService — CRUD and RFC queries for CIKG."""
 
 from __future__ import annotations
 
 import json
 import sqlite3
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator
 
 from .models import Edge, Node
-
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS nodes (
-    id TEXT PRIMARY KEY,
-    node_type TEXT NOT NULL,
-    name TEXT NOT NULL,
-    description TEXT DEFAULT '',
-    metadata TEXT DEFAULT '{}',
-    created_at TEXT NOT NULL
-);
-CREATE INDEX IF NOT EXISTS idx_nodes_type
-    ON nodes(node_type);
-CREATE INDEX IF NOT EXISTS idx_nodes_name
-    ON nodes(name);
-
-CREATE TABLE IF NOT EXISTS edges (
-    source_id TEXT NOT NULL,
-    target_id TEXT NOT NULL,
-    edge_type TEXT NOT NULL,
-    weight REAL DEFAULT 1.0,
-    metadata TEXT DEFAULT '{}',
-    PRIMARY KEY (source_id, target_id, edge_type)
-);
-CREATE INDEX IF NOT EXISTS idx_edges_source
-    ON edges(source_id);
-CREATE INDEX IF NOT EXISTS idx_edges_target
-    ON edges(target_id);
-"""
-
-
-@contextmanager
-def _connect(path: Path) -> Iterator[sqlite3.Connection]:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path), timeout=30.0)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=30000")
-    conn.row_factory = sqlite3.Row
-    try:
-        yield conn
-    finally:
-        conn.close()
+from .storage import SCHEMA, _connect
 
 
 class KnowledgeGraphService:
@@ -166,6 +124,58 @@ class KnowledgeGraphService:
             if n
         ]
 
+    def find_gaps(self, feature: str) -> list[dict[str, str]]:
+        feature_ids = self._matching_ids("feature", feature)
+        results = []
+        for node in self.list_nodes("competitor"):
+            status = "has" if self._has_targets(node.id, feature_ids) else "lacks"
+            results.append({
+                "entity_id": node.id,
+                "entity": node.name,
+                "feature": feature,
+                "status": status,
+            })
+        return sorted(results, key=lambda item: item["entity"])
+
+    def compare_entities(self, a: str, b: str) -> dict[str, list]:
+        a_features = self._targets_for(a, "has_feature")
+        b_features = self._targets_for(b, "has_feature")
+        related = self.get_edges(a, "out") + self.get_edges(b, "out")
+        relationships = [
+            self._edge_payload(edge)
+            for edge in related if {edge.source_id, edge.target_id} == {a, b}
+        ]
+        return {
+            "shared": sorted(a_features & b_features),
+            "only_a": sorted(a_features - b_features),
+            "only_b": sorted(b_features - a_features),
+            "relationships": relationships,
+        }
+
+    def get_landscape(self, segment: str) -> dict[str, object]:
+        segment_node = self._matching_nodes("market_segment", segment)
+        if not segment_node:
+            return self._empty_landscape(segment)
+        comp_ids = [
+            edge.source_id for edge in self.get_edges(segment_node[0].id, "in")
+            if edge.edge_type == "targets_market"
+        ]
+        names = [self.get_node(node_id).name for node_id in comp_ids if self.get_node(node_id)]
+        features = set().union(*(self._targets_for(node_id, "has_feature") for node_id in comp_ids))
+        techs = set().union(*(self._targets_for(node_id, "uses_technology") for node_id in comp_ids))
+        threats = sum(
+            1 for node_id in comp_ids for edge in self.get_edges(node_id, "out")
+            if edge.edge_type == "threatens" and edge.target_id in comp_ids
+        )
+        return {
+            "segment": segment_node[0].name,
+            "competitors": len(comp_ids),
+            "features_tracked": len(features),
+            "technologies": len(techs),
+            "threat_count": threats,
+            "top_competitors": sorted(names)[:10],
+        }
+
     def delete_node(self, node_id: str) -> None:
         with _connect(self._db_path) as conn:
             conn.execute(
@@ -189,3 +199,40 @@ class KnowledgeGraphService:
             weight=r["weight"],
             metadata=json.loads(r["metadata"]),
         )
+
+    def _empty_landscape(self, segment: str) -> dict[str, object]:
+        return {
+            "segment": segment,
+            "competitors": 0,
+            "features_tracked": 0,
+            "technologies": 0,
+            "threat_count": 0,
+            "top_competitors": [],
+        }
+
+    def _edge_payload(self, edge: Edge) -> dict[str, str]:
+        return {
+            "source_id": edge.source_id,
+            "target_id": edge.target_id,
+            "edge_type": edge.edge_type,
+        }
+
+    def _has_targets(self, node_id: str, targets: set[str]) -> bool:
+        return bool(targets & self._targets_for(node_id, "has_feature"))
+
+    def _matching_ids(self, node_type: str, query: str) -> set[str]:
+        nodes = self._matching_nodes(node_type, query)
+        return {node.id for node in nodes}
+
+    def _matching_nodes(self, node_type: str, query: str) -> list[Node]:
+        value = query.lower()
+        return [
+            node for node in self.list_nodes(node_type)
+            if value in node.name.lower() or value == node.id.lower()
+        ]
+
+    def _targets_for(self, node_id: str, edge_type: str) -> set[str]:
+        return {
+            edge.target_id for edge in self.get_edges(node_id, "out")
+            if edge.edge_type == edge_type
+        }

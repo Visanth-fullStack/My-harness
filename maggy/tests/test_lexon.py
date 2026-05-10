@@ -84,7 +84,7 @@ class TestLexonRouter:
     def test_unknown_intent(self):
         lr = LexonRouter()
         record = lr.route("xyzzy plugh")
-        assert record.confidence < 0.5
+        assert record.disambiguation_mode == "llm"
 
     def test_learn_and_recall(self):
         lr = LexonRouter()
@@ -96,7 +96,16 @@ class TestLexonRouter:
     def test_multiple_candidates(self):
         lr = LexonRouter()
         record = lr.route("search for files")
-        assert len(record.candidates) >= 1
+        assert record.disambiguation_mode == "llm"
+
+    def test_manifest_overrides_default_tools(self):
+        lr = LexonRouter({
+            "tool_manifest": {
+                "deploy": ["shipctl"],
+            },
+        })
+        record = lr.route("deploy release")
+        assert record.resolved_tool == "shipctl"
 
 
 class TestLexonRecord:

@@ -18,7 +18,7 @@ from .patterns import (
     generate_routing_recs,
     identify_bottlenecks,
 )
-from .report import format_health_metrics, generate_summary
+from .report import generate_summary
 from .signals import (
     extract_ci_signals,
     extract_review_signals,
@@ -71,7 +71,7 @@ class ProcessService:
         velocity = extract_velocity_signals(prs)
 
         # 3. Find patterns
-        bottlenecks = identify_bottlenecks(velocity, prs)
+        identify_bottlenecks(velocity, prs)
         fixes = generate_preemptive_fixes(
             review_signals, ci_signals
         )
