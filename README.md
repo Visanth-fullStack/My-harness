@@ -4,7 +4,7 @@
 
 **The bottleneck has moved from code generation to code comprehension.** AI can generate infinite code, but humans still need to review, understand, and maintain it. Maggy provides guardrails that keep AI-generated code simple, secure, and verifiable.
 
-**New in v3.6.0:** Cross-agent intelligence — Codex auto-reviews your code via Stop hook, Kimi handles small-blast-radius tasks to save tokens, iCPG + Mnemos mandatory across all three tools. Cross-tool compatibility with Claude Code, Kimi CLI, and Codex CLI.
+**New in v5.0.0:** Interactive Chat with session takeover (`--resume`), Polyphony multi-agent orchestration with container isolation, P2P Mesh networking for cross-machine session sync, auto-bootstrap (no empty tabs), grouped dashboard navigation (Work/Intel/System).
 
 ## Core Philosophy
 
@@ -51,8 +51,8 @@
 
 ```bash
 # Clone and install (clone anywhere you like)
-git clone https://github.com/alinaqi/maggy.git
-cd maggy && ./install.sh
+git clone https://github.com/alinaqi/claude-bootstrap.git
+cd claude-bootstrap && ./install.sh
 
 # In any project directory
 claude
@@ -365,7 +365,7 @@ icpg bootstrap                                    # Infer from git history
 
 ## Maggy Dashboard — AI Engineering Command Center (Optional)
 
-Maggy's dashboard turns your team's issue tracker into an AI-prioritized inbox with one-click code execution. It's an **optional extension** that ships under `maggy/` — install it when you want a persistent dashboard, skip it if you only need the CLI-based setup.
+Maggy is a full-featured AI engineering command center. Install once, point it at your codebases and issue tracker, and get an interactive dashboard with chat, task triage, competitor intelligence, process analytics, and P2P session sync.
 
 ```bash
 cd maggy/maggy
@@ -387,11 +387,26 @@ Or from inside any Claude Code session:
 
 ### What it does
 
-- **AI-prioritized inbox** — Claude ranks your open issues by urgency, OKR alignment, and recency. 30-min SQLite cache with stale-cache fallback when the tracker is down.
-- **One-click Execute** — spawns `claude -p` locally in the right codebase, with **iCPG context pre-injected** from the bootstrap's own reason graph. Runs a TDD pipeline (plan → tests → implement), then commits locally for your review.
-- **Competitor intelligence** — AI-discovered competitors in whatever domain you configure, plus daily news briefing from RSS + Google News.
-- **Provider-agnostic** — same 21 REST endpoints whether you use GitHub Issues, Asana, or (stubbed) Linear. Swap trackers without touching services.
-- **Minimal dashboard** — Tailwind + vanilla JS, no build step. 5 tabs: Inbox, Followed, Competitors, Sessions, Settings.
+- **Interactive Chat** — auto-connects to all active Claude/Codex/Kimi sessions, SSE streaming, session continuity via `--resume`, path-based history matching
+- **AI-prioritized Tasks** — Claude ranks your open issues by urgency, OKR alignment, and recency. 30-min SQLite cache with stale-cache fallback.
+- **One-click Execute** — spawns `claude -p` locally in the right codebase, with iCPG context pre-injected. Runs a TDD pipeline, then commits locally for your review.
+- **Competitor Intelligence** — AI-discovered competitors in whatever domain you configure, plus daily news briefing from RSS + Google News.
+- **Process Insights** — CLI session history analysis, health signals, self-improvement recommendations, event spine queries.
+- **P2P Mesh** — WebSocket-based multi-node session sync and handoff across machines, org-scoped networks, state quarantine.
+- **Auto-Bootstrap** — all services seed themselves on startup (history, CIKG, events). No empty tabs.
+- **Provider-agnostic** — GitHub Issues, Asana, or (stubbed) Linear. Swap trackers without touching services.
+
+### Dashboard Navigation
+
+Navigation is grouped by intent — 3 groups instead of 9 flat tabs:
+
+| Group | Tabs | Purpose |
+|-------|------|---------|
+| **Work** | Chat, Tasks, Watching | Do things — chat with Claude, triage issues |
+| **Intel** | Competitors, Insights | Learn things — competitor news, session analytics |
+| **System** | Budget, Models, Forge, Settings | Configure — spend limits, model routing, MCP gaps |
+
+Chat is the default tab — auto-connects to all running CLI sessions on load.
 
 ### Architecture
 
@@ -399,13 +414,22 @@ Or from inside any Claude Code session:
 maggy/
 ├── maggy/                           # optional dashboard — run ./install.sh to enable
 │   ├── maggy/                       # Python package (importable as `maggy`)
-│   │   ├── main.py                  # FastAPI entry
+│   │   ├── main.py                  # FastAPI entry + auto-bootstrap
 │   │   ├── config.py                # ~/.maggy/config.yaml loader
 │   │   ├── providers/               # GitHub, Asana, Linear (stub)
-│   │   ├── services/                # inbox, competitor, executor
-│   │   ├── api/routes.py            # REST endpoints
-│   │   └── static/                  # dashboard
-│   ├── config.example.yaml          # template for ~/.maggy/config.yaml
+│   │   ├── services/                # chat, inbox, competitor, executor, activity
+│   │   ├── api/                     # REST endpoints (chat, mesh, process, etc.)
+│   │   ├── mesh/                    # P2P networking (discovery, sync, WebSocket)
+│   │   ├── process/                 # Process intelligence (patterns, signals, router)
+│   │   ├── history/                 # CLI session history parsers (Claude, Codex, Kimi)
+│   │   ├── improve/                 # Self-improvement (signals, analyzer)
+│   │   ├── cikg/                    # Code Intelligence Knowledge Graph
+│   │   ├── engram/                  # Memory entries (write/query/expire)
+│   │   ├── event_spine/             # Structured event emission + querying
+│   │   ├── forge/                   # MCP capability gap detection
+│   │   ├── heartbeat/               # Scheduled jobs (history, engram, mesh sync)
+│   │   └── static/                  # Dashboard (Tailwind + vanilla JS, no build step)
+│   ├── tests/                       # 468 tests
 │   └── install.sh                   # one-line install
 ├── commands/maggy.md                # /maggy command
 ├── commands/maggy-init.md           # /maggy-init wizard
@@ -432,19 +456,16 @@ competitors:
 
 ### Safety model
 
-Execute runs Claude Code with `--dangerously-skip-permissions` so the TDD subprocess isn't blocked waiting on approval prompts with no terminal attached. Mitigations in place:
+Execute and Chat both run Claude Code with `--dangerously-skip-permissions` so subprocesses aren't blocked waiting on approval prompts with no terminal attached. Mitigations in place:
 
-- `working_dir` is **validated against the configured codebase roots** — Claude can't be pointed at arbitrary filesystem paths
+- `working_dir` and `project_path` are **validated against configured codebase roots** — both Execute and Chat reject arbitrary filesystem paths
+- **Per-session streaming lock** — `asyncio.Lock` prevents concurrent subprocess spawning via the Chat API
 - Dashboard **refuses to boot** if `auth_mode="local"` is combined with a non-loopback host (would expose Execute on the local network)
 - RSS URLs **SSRF-validated** before fetching (blocks loopback, private, link-local)
-- Dashboard links use a `http(s)`/`mailto` scheme allowlist; inline JS string escaping via `jsStr()`
+- `CLAUDECODE` env var stripped from subprocesses to allow nested Claude sessions
+- **No-cache static middleware** — `Cache-Control: no-store` prevents stale JS
 
-See `maggy/README.md` for the full hardening notes, and `skills/maggy/SKILL.md` for the skill doc Claude Code uses.
-
-### Not in the MVP
-
-- Meeting bot (voice), Slack integration, P2P session handoff, self-improvement — deferred to a v2 if there's demand
-- Linear provider is a stub; `build()` raises `NotImplementedError` cleanly
+See `maggy/README.md` for the full hardening notes.
 
 ## Pre-configured Permissions
 
@@ -582,7 +603,7 @@ your-project/
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Skills Included (61 Skills)
+## Skills Included (62 Skills)
 
 ### Core Skills
 | Skill | Purpose |
@@ -609,6 +630,7 @@ your-project/
 | `project-tooling.md` | gh, vercel, supabase CLI + deployment |
 | `existing-repo.md` | Analyze existing repos, setup guardrails |
 | `cross-agent-delegation.md` | Cross-agent task routing, Codex auto-review, Kimi delegation |
+| `polyphony.md` | Multi-agent orchestration with container-isolated workspaces |
 
 ### Language & Framework Skills
 | Skill | Purpose |
@@ -708,19 +730,20 @@ brew install supabase/tap/supabase && supabase login
 
 ## Key Differences from v2.x
 
-| Feature | v2.x (Old) | v3.0.0 (New) |
-|---------|-------------|---------------|
-| **TDD Loops** | Ralph Wiggum plugin (doesn't exist) | Stop hooks (real Claude Code infrastructure) |
-| **CLAUDE.md** | Lists skills as text | `@include` directives (actually load at parse time) |
+| Feature | v2.x | v5.0.0 |
+|---------|------|--------|
+| **TDD Loops** | Ralph Wiggum plugin (doesn't exist) | Stop hooks (real Claude Code infra) |
+| **CLAUDE.md** | Lists skills as text | `@include` directives (load at parse time) |
 | **Quality Rules** | In CLAUDE.md as prose | `.claude/rules/` with `paths:` frontmatter |
-| **Agent Teams** | Required `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` | Works natively via `.claude/agents/` |
-| **Agent Definitions** | Plain markdown | Proper frontmatter: tools, model, maxTurns, effort |
-| **Permissions** | Manual approval for everything | Pre-configured allow/deny in settings.json |
-| **Developer Overrides** | None | `CLAUDE.local.md` (gitignored, higher priority) |
-| **Framework Rules** | Always loaded (57 skills = token waste) | Conditional rules activate by file path |
+| **Agent Teams** | Required env var flag | Native via `.claude/agents/` + Polyphony containers |
+| **Agent Definitions** | Plain markdown | Frontmatter: tools, model, maxTurns, effort |
+| **Permissions** | Manual approval | Pre-configured allow/deny in settings.json |
+| **Framework Rules** | Always loaded (token waste) | Conditional rules activate by file path |
 | **Compaction** | Generic summarization | PreCompact hook + Mnemos typed preservation |
-| **Memory** | Lost on compaction/new session | Mnemos checkpoint/resume across sessions |
+| **Memory** | Lost on compaction | Mnemos checkpoint/resume across sessions |
 | **Intent Tracking** | None | iCPG links code to reasons, detects drift |
+| **Dashboard** | None | Maggy — chat, tasks, competitors, insights, P2P mesh |
+| **Cross-Agent** | None | Codex auto-review, Kimi delegation, complexity scoring |
 | **Enforcement** | "STRICTLY ENFORCED" prose | Real hooks that run code |
 
 ## Contributing
