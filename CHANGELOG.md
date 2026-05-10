@@ -64,6 +64,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Cache-busting** — `?v=3` on script tag
 - **`showToast()`** — green success notification for async operations
 
+### Security
+- **Chat path validation** — `project_path` now validated against configured codebase roots (blocks arbitrary filesystem access via `--dangerously-skip-permissions`)
+- **Chat streaming lock** — per-session `asyncio.Lock` rejects concurrent `/send` requests, preventing duplicate subprocess spawning and workspace corruption
+
 ### Fixed
 - Engram `expire_engrams` referencing `self` outside class context
 - `auto_connect` returning duplicate sessions for same project

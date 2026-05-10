@@ -93,7 +93,8 @@ Chat is the default tab — auto-connects to all running CLI sessions on load.
 
 ## Hardening
 
-- **Working dir whitelist** — Execute validates `working_dir` against configured codebase roots
+- **Working dir whitelist** — Execute and Chat both validate paths against configured codebase roots
+- **Chat streaming lock** — per-session `asyncio.Lock` prevents concurrent subprocess spawning
 - **SSRF protection** — RSS/blog feed URLs validated before fetch (blocks loopback, private-network)
 - **CLAUDECODE env stripping** — subprocess spawning removes `CLAUDECODE` to allow nested Claude sessions
 - **Process lifecycle** — Claude subprocesses killed on timeout; non-zero exits marked failed
