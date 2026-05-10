@@ -311,11 +311,40 @@ def reconfigure(app: FastAPI) -> None:
 app = create_app()
 
 
+def _print_banner(host: str, port: int) -> None:
+    """Print startup banner with usage instructions."""
+    url = f"http://{host}:{port}"
+    print("\n\033[1;38;5;208m  Maggy\033[0m")
+    print(f"  Dashboard: \033[4m{url}\033[0m")
+    print()
+    print(
+        "  \033[33mKeep this terminal open\033[0m"
+        " — Maggy runs here."
+    )
+    print(
+        "  Use other terminals for Claude Code"
+        " sessions."
+    )
+    print(
+        "  Maggy Chat auto-connects to all"
+        " active sessions."
+    )
+    print(
+        "\n  Press Ctrl+C to stop.\n"
+    )
+
+
 def main() -> None:
     """Console script entrypoint."""
     import uvicorn
     cfg = config_mod.load()
-    uvicorn.run("maggy.main:app", host=cfg.dashboard.host, port=cfg.dashboard.port, reload=False)
+    _print_banner(cfg.dashboard.host, cfg.dashboard.port)
+    uvicorn.run(
+        "maggy.main:app",
+        host=cfg.dashboard.host,
+        port=cfg.dashboard.port,
+        reload=False,
+    )
 
 
 if __name__ == "__main__":
