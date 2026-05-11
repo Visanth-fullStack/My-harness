@@ -114,12 +114,13 @@ def app_with_services(tmp_path: Path) -> FastAPI:
     from maggy.api.routes_planning import router as r_plan
     from maggy.api.routes_routing import router as r_routing
     from maggy.api.routes_setup import router as r_setup
+    from maggy.api.routes_users import router as r_users
 
     for r in (
         r_api, r_budget, r_cikg, r_deploy, r_engram,
         r_events, r_forge, r_heartbeat, r_history,
         r_improve, r_lexon, r_mesh, r_plan, r_routing,
-        r_setup,
+        r_setup, r_users,
     ):
         app.include_router(r)
 
@@ -202,6 +203,19 @@ class TestRoutingAPI:
         c = TestClient(app_with_services)
         resp = c.get("/api/routing/heatmap")
         assert len(resp.json()) >= 1
+
+
+class TestUsersAPI:
+    def test_create_user(self, client: TestClient):
+        resp = client.post(
+            "/api/users",
+            json={"email": "user@example.com", "password": "secret123"},
+        )
+
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["email"] == "user@example.com"
+        assert "password_hash" not in data
 
 
 # ── Phase 14: Event Spine ───────────────────────────────

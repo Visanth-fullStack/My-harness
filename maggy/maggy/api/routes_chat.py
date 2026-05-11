@@ -36,6 +36,12 @@ class SendMessageRequest(BaseModel):
     message: str
 
 
+class RoutedMessageRequest(BaseModel):
+    message: str
+    blast_score: int | None = None
+    task_type: str | None = None
+
+
 @router.post("/auto-connect")
 async def auto_connect(
     request: Request,
@@ -176,6 +182,53 @@ async def send_message(
             data = json.dumps(chunk)
             yield f"data: {data}\n\n"
         yield "data: {\"type\": \"done\"}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+    )
+
+
+@router.post("/sessions/{session_id}/send-routed")
+async def send_routed(
+    request: Request,
+    session_id: str,
+    body: RoutedMessageRequest,
+    x_api_key: str | None = Header(None),
+):
+    """Send a message routed through blast-score engine."""
+    check_auth(request, x_api_key)
+    chat = _require_chat(request)
+    s = chat.get_session(session_id)
+    if not s:
+        raise HTTPException(
+            status_code=404, detail="Session not found",
+        )
+    if not body.message.strip():
+        raise HTTPException(
+            status_code=400, detail="Message required",
+        )
+    routing = getattr(request.app.state, "routing", None)
+    budget = getattr(request.app.state, "budget", None)
+
+    async def event_stream():
+        from maggy.services.chat_router import RoutedChat
+        if routing:
+            rc = RoutedChat(routing, budget)
+            decision = rc.decide(
+                body.message, body.blast_score, body.task_type,
+            )
+            meta = {
+                "type": "routing",
+                "model": decision.model,
+                "blast": decision.blast,
+                "task_type": decision.task_type,
+                "reason": decision.reason,
+            }
+            yield f"data: {json.dumps(meta)}\n\n"
+        async for chunk in chat.send(session_id, body.message):
+            yield f"data: {json.dumps(chunk)}\n\n"
+        yield 'data: {"type": "done"}\n\n'
 
     return StreamingResponse(
         event_stream(),

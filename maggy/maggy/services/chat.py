@@ -124,7 +124,10 @@ class ChatManager:
             if existing:
                 connected[project] = existing
                 continue
-            session = self.create_session(project, path)
+            try:
+                session = self.create_session(project, path)
+            except ValueError:
+                continue
             connected[project] = session
         return list(connected.values())
 

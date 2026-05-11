@@ -160,3 +160,79 @@ class MaggyClient:
             for line in r.iter_lines():
                 if line.startswith("data: "):
                     yield json.loads(line[6:])
+
+    def chat_send_routed(
+        self, session_id: str, message: str,
+        blast: int | None = None,
+        task_type: str | None = None,
+    ):
+        """Yield SSE chunks from routed chat endpoint."""
+        url = (
+            f"{self.base_url}"
+            f"/api/chat/sessions/{session_id}/send-routed"
+        )
+        body: dict = {"message": message}
+        if blast is not None:
+            body["blast_score"] = blast
+        if task_type is not None:
+            body["task_type"] = task_type
+        with httpx.stream(
+            "POST", url, json=body, timeout=120.0,
+        ) as r:
+            for line in r.iter_lines():
+                if line.startswith("data: "):
+                    yield json.loads(line[6:])
+
+    def detect_project(self, cwd: str) -> str | None:
+        """Match cwd against configured codebases."""
+        try:
+            cfg = self.config()
+        except Exception:
+            return None
+        for cb in cfg.get("codebases", []):
+            if cwd.startswith(cb.get("path", "")):
+                return cb.get("key")
+        return None
+
+    # ── Session management ─────────────────────────
+
+    def spawn(self, task: str, project: str) -> dict:
+        return self.post(
+            "/api/execute",
+            {"task_id": task, "mode": "tdd",
+             "project_key": project},
+        )
+
+    def all_sessions(self) -> list:
+        """Merge chat + executor sessions."""
+        chat = self.chat_sessions()
+        executor = self.sessions()
+        combined = []
+        for s in chat:
+            combined.append({
+                "id": s.get("id"),
+                "project": s.get("project_key", ""),
+                "model": "claude",
+                "status": s.get("status", ""),
+                "type": "chat",
+                "messages": s.get("messages", 0),
+            })
+        for s in executor:
+            combined.append({
+                "id": s.get("id"),
+                "project": s.get("task_id", ""),
+                "model": s.get("model", "?"),
+                "status": s.get("status", ""),
+                "type": "executor",
+                "messages": 0,
+            })
+        return combined
+
+    def kill_session(self, session_id: str) -> dict:
+        r = httpx.delete(
+            f"{self.base_url}"
+            f"/api/chat/sessions/{session_id}",
+            timeout=10.0,
+        )
+        self._handle_error(r)
+        return r.json()

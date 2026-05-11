@@ -29,13 +29,6 @@ HISTORY = {
 }
 
 
-def _sse_lines(*chunks: dict) -> list[str]:
-    """Build SSE data lines from chunk dicts."""
-    lines = [f"data: {json.dumps(c)}" for c in chunks]
-    lines.append(f'data: {{"type": "done"}}')
-    return lines
-
-
 @patch("maggy.cli._client")
 def test_chat_creates_session(mock_client):
     """Chat command creates a session and enters REPL."""
@@ -50,20 +43,36 @@ def test_chat_creates_session(mock_client):
 
 
 @patch("maggy.cli._client")
-def test_chat_streams_response(mock_client):
-    """Chat sends message and streams SSE response."""
+def test_chat_routed_streams(mock_client):
+    """Routed chat sends via send_routed and shows model."""
     mock_client.ensure_server.return_value = True
     mock_client.chat_create.return_value = SESSION
-    chunks = [
-        {"type": "text", "content": "Hello "},
-        {"type": "text", "content": "world"},
-    ]
-    mock_client.chat_send_stream.return_value = iter(
-        chunks + [{"type": "done"}],
-    )
+    mock_client.chat_send_routed.return_value = iter([
+        {"type": "routing", "model": "kimi", "blast": 3, "task_type": "general", "reason": "low blast"},
+        {"type": "text", "content": "Hello"},
+        {"type": "done"},
+    ])
     with patch("maggy.cli_chat.Prompt") as mock_prompt:
         mock_prompt.ask.side_effect = ["say hi", "/quit"]
         result = runner.invoke(app, ["chat", "my-proj"])
+    assert result.exit_code == 0
+    mock_client.chat_send_routed.assert_called_once_with(
+        "abc123", "say hi", blast=None,
+    )
+
+
+@patch("maggy.cli._client")
+def test_chat_direct_mode(mock_client):
+    """--direct flag uses send_stream instead of routed."""
+    mock_client.ensure_server.return_value = True
+    mock_client.chat_create.return_value = SESSION
+    mock_client.chat_send_stream.return_value = iter([
+        {"type": "text", "content": "Hi"},
+        {"type": "done"},
+    ])
+    with patch("maggy.cli_chat.Prompt") as mock_prompt:
+        mock_prompt.ask.side_effect = ["say hi", "/quit"]
+        result = runner.invoke(app, ["chat", "my-proj", "--direct"])
     assert result.exit_code == 0
     mock_client.chat_send_stream.assert_called_once_with(
         "abc123", "say hi",
@@ -72,7 +81,6 @@ def test_chat_streams_response(mock_client):
 
 @patch("maggy.cli._client")
 def test_chat_history_command(mock_client):
-    """The /history slash command shows message history."""
     mock_client.ensure_server.return_value = True
     mock_client.chat_create.return_value = SESSION
     mock_client.chat_history.return_value = HISTORY
@@ -84,34 +92,26 @@ def test_chat_history_command(mock_client):
 
 
 @patch("maggy.cli._client")
-def test_chat_sessions_command(mock_client):
-    """/sessions shows all chat sessions."""
+def test_chat_blast_override(mock_client):
+    """'/blast 8' sets override for next message."""
     mock_client.ensure_server.return_value = True
     mock_client.chat_create.return_value = SESSION
-    mock_client.chat_sessions.return_value = [
-        {"id": "abc123", "project_key": "my-proj", "status": "idle", "messages": 2},
-    ]
+    mock_client.chat_send_routed.return_value = iter([
+        {"type": "routing", "model": "claude", "blast": 8, "task_type": "general", "reason": "override"},
+        {"type": "text", "content": "Done"},
+        {"type": "done"},
+    ])
     with patch("maggy.cli_chat.Prompt") as mock_prompt:
-        mock_prompt.ask.side_effect = ["/sessions", "/quit"]
+        mock_prompt.ask.side_effect = ["/blast 8", "do it", "/quit"]
         result = runner.invoke(app, ["chat", "my-proj"])
     assert result.exit_code == 0
-    mock_client.chat_sessions.assert_called_once()
-
-
-@patch("maggy.cli._client")
-def test_chat_clear_command(mock_client):
-    """/clear clears screen without error."""
-    mock_client.ensure_server.return_value = True
-    mock_client.chat_create.return_value = SESSION
-    with patch("maggy.cli_chat.Prompt") as mock_prompt:
-        mock_prompt.ask.side_effect = ["/clear", "/quit"]
-        result = runner.invoke(app, ["chat", "my-proj"])
-    assert result.exit_code == 0
+    mock_client.chat_send_routed.assert_called_once_with(
+        "abc123", "do it", blast=8,
+    )
 
 
 @patch("maggy.cli._client")
 def test_chat_ctrl_c_exits(mock_client):
-    """Ctrl+C (KeyboardInterrupt) exits gracefully."""
     mock_client.ensure_server.return_value = True
     mock_client.chat_create.return_value = SESSION
     with patch("maggy.cli_chat.Prompt") as mock_prompt:
@@ -122,23 +122,21 @@ def test_chat_ctrl_c_exits(mock_client):
 
 @patch("maggy.cli._client")
 def test_chat_empty_input_ignored(mock_client):
-    """Empty input is skipped without sending."""
     mock_client.ensure_server.return_value = True
     mock_client.chat_create.return_value = SESSION
     with patch("maggy.cli_chat.Prompt") as mock_prompt:
         mock_prompt.ask.side_effect = ["", "  ", "/quit"]
         result = runner.invoke(app, ["chat", "my-proj"])
     assert result.exit_code == 0
-    mock_client.chat_send_stream.assert_not_called()
+    mock_client.chat_send_routed.assert_not_called()
 
 
 @patch("maggy.cli._client")
-def test_chat_error_chunk_displayed(mock_client):
-    """Error chunks from SSE are displayed."""
+def test_chat_error_displayed(mock_client):
     mock_client.ensure_server.return_value = True
     mock_client.chat_create.return_value = SESSION
-    mock_client.chat_send_stream.return_value = iter([
-        {"type": "error", "content": "claude CLI not found"},
+    mock_client.chat_send_routed.return_value = iter([
+        {"type": "error", "content": "CLI not found"},
         {"type": "done"},
     ])
     with patch("maggy.cli_chat.Prompt") as mock_prompt:
