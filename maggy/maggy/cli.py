@@ -22,7 +22,6 @@ app = typer.Typer(
     help="Maggy — AI Engineering Platform",
     no_args_is_help=False,
 )
-
 _client = MaggyClient()
 
 
@@ -33,9 +32,6 @@ def _ensure() -> bool:
     return True
 
 
-# ── Default: launch dashboard ───────────────────
-
-
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context) -> None:
     """Launch the Maggy dashboard (default)."""
@@ -43,17 +39,11 @@ def main(ctx: typer.Context) -> None:
         serve()
 
 
-# ── Serve ───────────────────────────────────────
-
-
 @app.command()
 def serve() -> None:
     """Start the Maggy server + web dashboard."""
     from maggy.main import main as start_server
     start_server()
-
-
-# ── Status ──────────────────────────────────────
 
 
 @app.command()
@@ -67,9 +57,6 @@ def status(
         dump_json(data)
     else:
         render_health(data)
-
-
-# ── Inbox ───────────────────────────────────────
 
 
 @app.command()
@@ -88,9 +75,6 @@ def inbox(
         render_inbox(data)
 
 
-# ── Sessions ────────────────────────────────────
-
-
 @app.command()
 def sessions(
     json_out: bool = typer.Option(False, "--json"),
@@ -104,7 +88,14 @@ def sessions(
         render_sessions(data)
 
 
-# ── Execute ─────────────────────────────────────
+@app.command()
+def chat(
+    project: str = typer.Argument(..., help="Project key"),
+) -> None:
+    """Interactive chat with a project's AI session."""
+    _ensure()
+    from maggy.cli_chat import run_chat
+    run_chat(_client, project)
 
 
 @app.command()
@@ -123,9 +114,6 @@ def execute(
     )
 
 
-# ── Route ───────────────────────────────────────
-
-
 @app.command()
 def route(
     blast: int = typer.Argument(..., help="Complexity 1-10"),
@@ -141,9 +129,6 @@ def route(
         render_route(data)
 
 
-# ── Budget ──────────────────────────────────────
-
-
 @app.command()
 def budget(
     json_out: bool = typer.Option(False, "--json"),
@@ -157,9 +142,6 @@ def budget(
         render_budget(data)
 
 
-# ── Models ──────────────────────────────────────
-
-
 @app.command()
 def models(
     json_out: bool = typer.Option(False, "--json"),
@@ -171,9 +153,6 @@ def models(
         dump_json(data)
     else:
         render_models(data)
-
-
-# ── Competitors ─────────────────────────────────
 
 
 @app.command()
@@ -195,9 +174,6 @@ def competitors(
         render_competitors(data)
 
 
-# ── Process ─────────────────────────────────────
-
-
 @app.command()
 def process(
     project: str = typer.Argument(..., help="Project key"),
@@ -210,9 +186,6 @@ def process(
         dump_json(data)
     else:
         console.print_json(data=data)
-
-
-# ── Config ──────────────────────────────────────
 
 
 @app.command()

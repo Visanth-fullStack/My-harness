@@ -6,6 +6,8 @@ import subprocess
 import sys
 import time
 
+import json
+
 import httpx
 import typer
 
@@ -127,3 +129,34 @@ class MaggyClient:
 
     def sessions(self) -> list:
         return self.get("/api/execute/sessions")
+
+    # ── Chat ──────────────────────────────────────
+
+    def chat_create(self, project_key: str) -> dict:
+        return self.post(
+            "/api/chat/sessions",
+            {"project_key": project_key},
+        )
+
+    def chat_sessions(self) -> list:
+        return self.get("/api/chat/sessions")
+
+    def chat_history(self, session_id: str) -> dict:
+        return self.get(f"/api/chat/sessions/{session_id}")
+
+    def chat_send_stream(
+        self, session_id: str, message: str,
+    ):
+        """Yield parsed SSE chunks from chat endpoint."""
+        url = (
+            f"{self.base_url}"
+            f"/api/chat/sessions/{session_id}/send"
+        )
+        with httpx.stream(
+            "POST", url,
+            json={"message": message},
+            timeout=120.0,
+        ) as r:
+            for line in r.iter_lines():
+                if line.startswith("data: "):
+                    yield json.loads(line[6:])
