@@ -206,25 +206,56 @@ Standalone generation speed measured with identical prompts across all four mode
 | Model | Run 1 | Run 2 | Run 3 | Avg tok/s | Notes |
 |-------|-------|-------|-------|-----------|-------|
 | **Ollama qwen2.5-coder:32b** | 22.3 | 21.8 | 22.1 | **22.1** | Local GPU (M4 Max), consistent across runs |
-| **Ollama qwen3-coder:30b-a3b-q8_0** | TBD | TBD | TBD | **TBD** | MoE (3.3B active/30B total), Q8_0, pending benchmark |
+| **Ollama qwen3-coder:30b-a3b-q8_0** | 75.3 | 75.4 | 76.3 | **75.7** | MoE (3.3B active/30B total), Q8_0, **3.4x faster than qwen2.5** |
 | **Claude (claude -p)** | 44.6 (API) / 18.6 (wall) | 41.9 / 14.3 | 25.7 / 6.8 | **37.4 API / 13.2 wall** | API time excludes network overhead; wall-clock includes CLI startup |
 | **Kimi (kimi CLI)** | ~1.8 | ~2.8 | ~3.3 | **~2.6** | Agentic mode — writes files, runs tools; tok/s reflects execution time |
 | **Codex (codex exec)** | ~0.8 | ~0.7 | ~0.6 | **~0.7** | Agentic mode — full-auto file creation; tok/s reflects execution time |
 
 ### 9.2 Interpretation
 
-- **Ollama (local):** Stable 22 tok/s on M4 Max 128GB. No network latency, no rate limits, no cost. Best for blast 1-2 tasks where speed-to-first-token matters.
-- **Claude:** Fastest raw generation at ~37 tok/s (API). Wall-clock is lower (~13 tok/s) due to CLI startup overhead and streaming.
-- **Kimi / Codex:** Low tok/s numbers are misleading — both operate in agentic mode (writing files, running commands, iterating). Their throughput reflects end-to-end task execution, not pure generation speed. Codex in particular spends most time on sandboxed execution rather than generation.
+- **Ollama qwen3-coder (local):** **75.7 tok/s** — 3.4x faster than qwen2.5-coder:32b (22.1 tok/s) and **2x faster than Claude's API rate** (37.4 tok/s). MoE architecture (3.3B active / 30B total params) means only a fraction of parameters are computed per token. Cold start adds ~13s for model load; hot runs start in <100ms. This makes qwen3-coder the fastest model in the fleet for pure generation.
+- **Ollama qwen2.5-coder (retired):** Was 22 tok/s. Replaced by qwen3-coder which is 3.4x faster with comparable quality.
+- **Claude:** 37 tok/s API generation. Still the strongest for reasoning-heavy tasks (security, architecture, TDD).
+- **Kimi / Codex:** Low tok/s numbers are misleading — both operate in agentic mode (writing files, running commands, iterating). Their throughput reflects end-to-end task execution, not pure generation speed.
 
 ### 9.3 Routing Implications
 
 | Tier | Model | tok/s | Cost | Best For |
 |------|-------|-------|------|----------|
-| Local | Ollama qwen3-coder:30b-a3b-q8_0 | TBD | Free | Blast 1-3: docs, simple edits, CRUD |
+| Local | Ollama qwen3-coder:30b-a3b-q8_0 | 75.7 | Free | Blast 1-3: simple edits, CRUD, code generation |
 | Mid | Kimi | 2.6 (agentic) | Cheap | Blast 3-4: schema design, CRUD |
 | Premium-Auto | Codex | 0.7 (agentic) | Mid | Blast 5-6: feature implementation |
 | Premium | Claude | 37 (API) | High | Blast 7+: security, architecture, TDD |
+
+### 9.4 Qwen3-Coder Quality Assessment
+
+Two coding tasks evaluated for correctness and code quality:
+
+**Task 1: Binary Search Tree** (same prompt as throughput benchmark)
+- Insert, delete (leaf/internal/root), search, in-order traversal — all correct
+- Clean class structure, recursive helpers, inorder-successor delete
+- Handles duplicate-ignore semantics correctly
+- **Score: 10/10** — functionally identical to Claude's output
+
+**Task 2: Async Rate Limiter** (token bucket, concurrent-safe)
+- `asyncio.Lock` for concurrency safety
+- `_refill()` based on elapsed time — correct token bucket math
+- `acquire()` waits in loop, `try_acquire()` returns immediately
+- Burst exhaustion + refill timing verified within 1ms of expected
+- 10 concurrent tasks completed without deadlock
+- **Score: 9/10** — correct and safe; minor: polling loop at 1ms instead of event-driven wait
+
+**Quality Summary:**
+
+| Dimension | qwen3-coder | qwen2.5-coder | Claude |
+|-----------|-------------|---------------|--------|
+| Correctness | 10/10 | 9/10 | 10/10 |
+| Code structure | 9/10 | 8/10 | 10/10 |
+| Concurrency safety | 9/10 | N/A | 10/10 |
+| Generation speed | **75.7 tok/s** | 22.1 tok/s | 37.4 tok/s |
+| Cost | Free | Free | $$$ |
+
+**Verdict:** qwen3-coder is a major upgrade — 3.4x faster than qwen2.5 with equal or better code quality. At 75.7 tok/s it's the fastest model in the fleet, making it ideal for blast 1-4 tasks where speed matters and deep reasoning isn't required.
 
 ---
 

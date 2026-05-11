@@ -76,9 +76,12 @@ def _default_conventions() -> list[Convention]:
     """Team conventions from claude-bootstrap skills."""
     return [
         Convention(
-            "Build minimum wowable product (mWP). Ship the smallest "
-            "thing that makes someone say 'wow'. No feature flags, no "
-            "backwards-compat shims, no premature abstractions.",
+            "mWP Mindset: Ship minimum wowable product, not MVP. "
+            "Ask: (1) What's the obvious implementation? (that's MVP, "
+            "don't ship it) (2) What would make this magical? (that's "
+            "mWP, ship that) (3) What existing systems does this feed "
+            "into? (that's the multiplier). Target 5-7 stars on the "
+            "11-star scale. No feature flags, no premature abstractions.",
             ["all"], "claude-bootstrap",
         ),
         Convention(

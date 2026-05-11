@@ -6,6 +6,48 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [5.1.0] - 2026-05-11
+
+### Added
+
+#### REPL Slash Commands — Stats, Routing, Model Control
+- **`maggy/cli_repl_cmds.py`** — 9 command handlers for the interactive REPL:
+  - `/stats` — Budget + model performance summary (spend, status, reward heatmap)
+  - `/budget` — Detailed per-provider breakdown with visual progress bar
+  - `/route` — Routing rules, task type overrides, model strengths/success rates
+  - `/models` — Full reward heatmap grid by model × task type × blast tier
+  - `/use claude,codex` — Restrict routing to specific models for this session
+  - `/use all` — Remove model restriction
+  - `/config` — Configuration summary (codebases, routing mode, budget limit)
+  - `/claude-md` — Render project's CLAUDE.md in terminal
+  - `/help` — List all available commands
+- **`SessionState`** dataclass — Mutable session-level state (session_id, working_dir, allowed_models)
+- **`dispatch()`** router — Parses slash commands, routes to handlers, returns True if handled
+- **`GET /api/routing/rules`** endpoint — Exposes routing mode, task type overrides, model performance
+- **`allowed_models`** field on `RoutedMessageRequest` — Server-side model restriction: if routed model not in allowed list, picks first allowed model with updated reason
+
+#### Qwen3-Coder Benchmarks
+- **75.7 tok/s average** — 3.4× faster than Qwen2.5-Coder (22.1 tok/s), 2× faster than Claude API (37.4 tok/s)
+- MoE architecture (3.3B active / 30B total params) on M4 Max 128GB
+- Quality: 10/10 BST correctness, 9/10 async rate limiter (token bucket + asyncio.Lock)
+- Cold start: ~13s model load; hot runs: <100ms start
+
+#### mWP Mindset — Full Framework
+- **`skills/base/SKILL.md`** — Added complete mWP section with 11-Star Framework (Brian Chesky), mWP planning checklist (obvious → magical → multiplier)
+- **`routing_rules.py`** — Expanded mWP convention injected into all CLI prompts (codex, kimi, qwen3, claude) with 3-question framework and 11-star reference
+
+### Changed
+- **`cli_chat.py`** — Integrated `SessionState` and `dispatch()` from `cli_repl_cmds`; passes `allowed_models` to `chat_send_routed()`; mode hint now shows `/help for commands`
+- **`cli_client.py`** — Added `budget_by_provider()`, `routing_rules()` methods; updated `chat_send_routed()` signature to accept `allowed_models`
+- **`benchmark-results.md`** — Qwen3-Coder results filled in (was TBD), quality assessment section added
+
+### Tests
+- `tests/test_repl_cmds.py` — 10 tests (dispatch routing, stats, budget, route, models, use, claude-md, help)
+- `tests/test_cli_chat.py` — Updated 2 assertions for `allowed_models=None` parameter
+- **Total: 653 tests passing** (643 maggy + 10 session detect)
+
+---
+
 ## [5.0.0] - 2026-05-10
 
 ### Added

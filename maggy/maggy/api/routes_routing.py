@@ -44,3 +44,34 @@ async def decide(
         "fallback": decision.fallback_chain,
         "reason": decision.reason,
     }
+
+
+@router.get("/rules")
+async def rules(
+    request: Request,
+    x_api_key: str | None = Header(None),
+) -> dict:
+    """Return routing rules summary."""
+    check_auth(request, x_api_key)
+    svc = request.app.state.routing
+    if not svc:
+        return {"mode": "unconfigured"}
+    r = svc.rules
+    overrides = {
+        k: {"model": v.model, "reason": v.reason}
+        for k, v in r.task_type_overrides.items()
+    }
+    perf = {
+        k: {
+            "strengths": v.strengths,
+            "success_rate": v.success_rate,
+            "tasks_completed": v.tasks_completed,
+        }
+        for k, v in r.model_performance.items()
+    }
+    return {
+        "mode": svc.cfg.routing.mode,
+        "task_type_overrides": overrides,
+        "model_performance": perf,
+        "conventions_count": len(r.conventions),
+    }

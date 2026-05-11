@@ -40,6 +40,7 @@ class RoutedMessageRequest(BaseModel):
     message: str
     blast_score: int | None = None
     task_type: str | None = None
+    allowed_models: list[str] | None = None
 
 
 @router.post("/auto-connect")
@@ -218,6 +219,10 @@ async def send_routed(
             decision = rc.decide(
                 body.message, body.blast_score, body.task_type,
             )
+            allowed = body.allowed_models
+            if allowed and decision.model not in allowed:
+                decision.model = allowed[0]
+                decision.reason = f"restricted to {','.join(allowed)}"
             meta = {
                 "type": "routing",
                 "model": decision.model,

@@ -95,7 +95,7 @@ def test_chat_routed_streams(mock_client):
         result = runner.invoke(app, ["chat", "my-proj"])
     assert result.exit_code == 0
     mock_client.chat_send_routed.assert_called_once_with(
-        "abc123", "say hi", blast=None,
+        "abc123", "say hi", blast=None, allowed_models=None,
     )
 
 
@@ -143,7 +143,7 @@ def test_chat_blast_override(mock_client):
         result = runner.invoke(app, ["chat", "my-proj"])
     assert result.exit_code == 0
     mock_client.chat_send_routed.assert_called_once_with(
-        "abc123", "do it", blast=8,
+        "abc123", "do it", blast=8, allowed_models=None,
     )
 
 

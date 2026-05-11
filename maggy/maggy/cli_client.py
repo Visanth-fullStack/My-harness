@@ -115,6 +115,12 @@ class MaggyClient:
     def models_heatmap(self) -> list:
         return self.get("/api/routing/heatmap")
 
+    def routing_rules(self) -> dict:
+        return self.get("/api/routing/rules")
+
+    def budget_by_provider(self) -> list:
+        return self.get("/api/budget/by-provider")
+
     def process_health(self, project: str) -> dict:
         return self.get(f"/api/process/health/{project}")
 
@@ -164,7 +170,7 @@ class MaggyClient:
     def chat_send_routed(
         self, session_id: str, message: str,
         blast: int | None = None,
-        task_type: str | None = None,
+        allowed_models: list[str] | None = None,
     ):
         """Yield SSE chunks from routed chat endpoint."""
         url = (
@@ -174,8 +180,8 @@ class MaggyClient:
         body: dict = {"message": message}
         if blast is not None:
             body["blast_score"] = blast
-        if task_type is not None:
-            body["task_type"] = task_type
+        if allowed_models:
+            body["allowed_models"] = allowed_models
         with httpx.stream(
             "POST", url, json=body, timeout=120.0,
         ) as r:

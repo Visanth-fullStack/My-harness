@@ -10,6 +10,7 @@ from rich.markdown import Markdown
 from rich.prompt import Prompt
 from rich.table import Table
 
+from maggy.cli_repl_cmds import SessionState, dispatch
 from maggy.services.session_detect import detect_all
 
 console = Console()
@@ -28,19 +29,14 @@ def run_chat(
     sid = session.get("id", "?")
     wd = session.get("working_dir", "?")
     label = "Resuming" if resumed else "New session"
-    n = session.get("messages", 0)
-    suffix = f", {n} msgs" if resumed else ""
-    console.print(
-        f"{label} [bold]{project}[/bold] ({sid}{suffix})",
-    )
+    suffix = f", {session.get('messages', 0)} msgs" if resumed else ""
+    console.print(f"{label} [bold]{project}[/bold] ({sid}{suffix})")
     console.print(f"Working dir: {wd}")
     _show_resume_info(client, sid, wd)
-    mode = "routed" if routed else "direct"
-    console.print(
-        f"[dim]Mode: {mode} | "
-        f"/blast N /history /sessions /quit[/dim]\n",
-    )
-    _repl_loop(client, sid, routed)
+    state = SessionState(session_id=sid, working_dir=wd)
+    m = "routed" if routed else "direct"
+    console.print(f"[dim]Mode: {m} | /help for commands[/dim]\n")
+    _repl_loop(client, state, routed)
     console.print("[dim]Session saved. Bye.[/dim]")
 
 
@@ -77,11 +73,10 @@ def _show_resume_info(
         text = msg.get("content", "")[:120]
         tag = "[cyan]You[/cyan]" if role == "user" else "[green]Maggy[/green]"
         console.print(f"  {tag}: {text}")
-    console.print()
 
 
 def _repl_loop(
-    client, session_id: str, routed: bool,
+    client, state: SessionState, routed: bool,
 ) -> None:
     """Prompt loop with blast override support."""
     blast_override: int | None = None
@@ -97,7 +92,7 @@ def _repl_loop(
         if stripped == "/quit":
             break
         if stripped == "/history":
-            _show_history(client, session_id)
+            _show_history(client, state.session_id)
             continue
         if stripped == "/sessions":
             _show_sessions(client)
@@ -108,13 +103,17 @@ def _repl_loop(
         if stripped.startswith("/blast"):
             blast_override = _parse_blast(stripped)
             continue
+        if dispatch(stripped, client, state):
+            continue
         if routed:
             chunks = client.chat_send_routed(
-                session_id, stripped, blast=blast_override,
+                state.session_id, stripped,
+                blast=blast_override,
+                allowed_models=state.allowed_models or None,
             )
         else:
             chunks = client.chat_send_stream(
-                session_id, stripped,
+                state.session_id, stripped,
             )
         _stream_chunks(chunks)
         blast_override = None
