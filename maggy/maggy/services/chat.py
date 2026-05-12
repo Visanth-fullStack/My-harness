@@ -5,18 +5,21 @@ from __future__ import annotations
 import asyncio
 import logging
 import uuid
-from collections import deque
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncGenerator
 
 from maggy.config import MaggyConfig
+from maggy.services.chat_models import (
+    ChatMessage,
+    ChatSession,
+    enqueue_msg,
+)
 from maggy.services.chat_stream import stream_message
 
 logger = logging.getLogger(__name__)
 
-MAX_QUEUE = 5
+# Re-export for backwards compatibility
+__all__ = ["ChatManager", "ChatMessage", "ChatSession", "enqueue_msg"]
 
 
 def _detect_image(message: str) -> tuple[str, str] | None:
@@ -25,56 +28,28 @@ def _detect_image(message: str) -> tuple[str, str] | None:
     return extract_image_path(message)
 
 
+def _detect_document(message: str) -> tuple[str, str] | None:
+    """Check if message contains a document file path."""
+    from maggy.services.documents import extract_document_path
+    return extract_document_path(message)
+
+
 async def _stream_vision(
     path: str, prompt: str | None,
 ) -> AsyncGenerator[dict, None]:
-    """Stream vision analysis as chat chunks."""
-    from maggy.services.vision import async_analyze_image
-    async for chunk in async_analyze_image(path, prompt):
+    """Stream vision analysis with Ollama→Claude escalation."""
+    from maggy.services.model_escalation import vision_with_escalation
+    async for chunk in vision_with_escalation(path, prompt or "Analyze this image."):
         yield chunk
 
 
-@dataclass
-class ChatMessage:
-    """A single message in a chat session."""
-
-    role: str  # "user" | "assistant"
-    content: str
-    timestamp: str = field(
-        default_factory=lambda: datetime.now(
-            timezone.utc
-        ).isoformat()
-    )
-
-
-@dataclass
-class ChatSession:
-    """An interactive Claude Code session."""
-
-    id: str
-    claude_session_id: str
-    project_key: str
-    working_dir: str
-    messages: list[ChatMessage] = field(default_factory=list)
-    status: str = "idle"
-    created_at: str = field(
-        default_factory=lambda: datetime.now(
-            timezone.utc
-        ).isoformat()
-    )
-    pid: int = 0
-    history_context: str = ""
-    pending_queue: deque = field(
-        default_factory=lambda: deque(maxlen=MAX_QUEUE),
-    )
-
-
-def enqueue_msg(session: ChatSession, message: str) -> int:
-    """Append message to session queue. Returns position or -1."""
-    if len(session.pending_queue) >= MAX_QUEUE:
-        return -1
-    session.pending_queue.append(message)
-    return len(session.pending_queue)
+async def _stream_doc(
+    path: str, prompt: str | None, session,
+) -> AsyncGenerator[dict, None]:
+    """Extract document text and forward to Claude."""
+    from maggy.services.documents import process_document
+    async for chunk in process_document(path, prompt, session):
+        yield chunk
 
 
 class ChatManager:
@@ -167,8 +142,12 @@ class ChatManager:
             return
         async with lock:
             img = _detect_image(message)
+            doc = _detect_document(message) if not img else None
             if img:
                 async for chunk in _stream_vision(*img):
+                    yield chunk
+            elif doc:
+                async for chunk in _stream_doc(*doc, session):
                     yield chunk
             else:
                 async for chunk in stream_message(session, message):

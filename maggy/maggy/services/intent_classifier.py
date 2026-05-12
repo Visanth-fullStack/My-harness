@@ -101,28 +101,36 @@ def _parse_blast(text: str) -> int | None:
 
 
 async def classify_intent(message: str) -> str:
-    """Classify intent via local Ollama model.
+    """Classify intent via Ollama with Claude API escalation.
 
-    Falls back to keyword matching if Ollama is down.
+    Falls back to keyword matching if both are down.
     """
-    text = await _ollama_call(_TYPE_PROMPT.format(message=message))
+    from maggy.services.model_escalation import (
+        ollama_with_escalation,
+    )
+    prompt = _TYPE_PROMPT.format(message=message)
+    text = await ollama_with_escalation(prompt)
     if text is not None:
         return _parse_response(text)
-    logger.debug("Ollama unavailable, using keyword fallback")
+    logger.debug("All models unavailable, using keyword fallback")
     from maggy.services.chat_router import estimate_type
     return estimate_type(message)
 
 
 async def classify_blast(message: str) -> int:
-    """Estimate blast score (1-10) via local Ollama model.
+    """Estimate blast score (1-10) via Ollama with Claude escalation.
 
-    Falls back to keyword-based estimation if Ollama is down.
+    Falls back to keyword-based estimation if both are down.
     """
-    text = await _ollama_call(_BLAST_PROMPT.format(message=message))
+    from maggy.services.model_escalation import (
+        ollama_with_escalation,
+    )
+    prompt = _BLAST_PROMPT.format(message=message)
+    text = await ollama_with_escalation(prompt)
     if text is not None:
         score = _parse_blast(text)
         if score is not None:
             return score
-    logger.debug("Ollama blast unavailable, using keyword fallback")
+    logger.debug("All models unavailable, using keyword fallback")
     from maggy.services.chat_router import estimate_blast
     return estimate_blast(message)
