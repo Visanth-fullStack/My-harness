@@ -197,6 +197,15 @@ def _task_type(task: "Task") -> str:
     return task.labels[0] if task.labels else "general"
 
 
+def select_strategy(
+    blast: int, file_count: int, user_requested: bool = False,
+) -> str:
+    """Return 'parallel' or 'sequential' execution strategy."""
+    if user_requested or blast >= 7 or file_count >= 5:
+        return "parallel"
+    return "sequential"
+
+
 def _security_flag(raw: dict, task_type: str) -> bool:
     if "security_sensitive" in raw:
         return bool(raw["security_sensitive"])

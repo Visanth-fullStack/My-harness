@@ -40,6 +40,7 @@ from maggy.api.routes_observability import router as observability_router
 from maggy.api.routes_projects import router as projects_router
 from maggy.api.routes_setup import router as setup_router
 from maggy.api.routes_users import router as users_router
+from maggy.api.routes_orchestrator import router as orchestrator_router
 from maggy.mesh.ws_server import router as ws_mesh_router
 from maggy.budget import BudgetManager
 from maggy.event_spine.emitter import EventEmitter
@@ -92,6 +93,11 @@ def _init_tier1(app: FastAPI, cfg) -> None:
     app.state.escalator = Escalator(db_dir / "escalations.db")
     from maggy.observability.collector import ObservabilityCollector
     app.state.observability = ObservabilityCollector(db_dir / "observability.db")
+    if cfg.orchestrator.enabled:
+        from maggy.services.orchestrator import OrchestratorService
+        app.state.orchestrator = OrchestratorService(cfg)
+    else:
+        app.state.orchestrator = None
 
 
 def _init_mesh(app: FastAPI, cfg) -> None:
@@ -268,7 +274,7 @@ _ROUTERS = (
     mesh_router, mesh_admin_router, observability_router,
     planning_router, process_router, projects_router,
     routing_router, setup_router, users_router,
-    ws_mesh_router,
+    orchestrator_router, ws_mesh_router,
 )
 
 

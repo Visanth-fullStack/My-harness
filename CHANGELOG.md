@@ -6,6 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [6.0.0] - 2026-05-12
+
+### Added
+
+#### Polyphony Container Orchestration — Parallel Execution
+- **`maggy/orchestrator/`** — Polyphony orchestrator integrated as first-class Maggy subpackage. 20 files (~2700 lines) covering Docker container lifecycle, git workspace cloning, adapter routing (Claude/Codex/Kimi), 5-dimension complexity scoring, SQLite state tracking, and 7-state task machine.
+- **`orchestrator/async_runtime.py`** — Async wrappers (`asyncio.to_thread`) around sync Docker subprocess calls. Non-blocking container create/start/wait/stop/remove.
+- **`orchestrator/decomposer.py`** — LLM-based task decomposition. Asks Claude to split complex tasks into 2-5 independent subtasks. Falls back to single-task on failure. Capped at 5 subtasks.
+- **`services/orchestrator.py`** — `OrchestratorService` manages team lifecycle: `spawn_team()` launches containers in parallel via `asyncio.gather`, `_run_one()` handles per-container Docker lifecycle (create → start → wait → logs → remove), `cancel_team()` for graceful shutdown.
+- **`services/executor_helpers.py`** — `select_strategy()` decides parallel vs sequential: blast≥7 OR files≥5 OR user_requested → parallel.
+- **`api/routes_orchestrator.py`** — REST endpoints: `POST /spawn` (decompose + launch team), `GET /teams` (list), `GET /teams/{id}` (status), `POST /teams/{id}/cancel`, all under `/api/orchestrator/`.
+- **`config.py`** — `OrchestratorConfig` dataclass: `enabled`, `max_concurrent` (default 3), `workspace_root`, `container_timeout` (600s), `decompose_threshold` (7).
+- **`main.py`** — Orchestrator router registered, service initialized when `orchestrator.enabled = true`.
+
+### Stats
+- 868 tests passing (843 + 25 new orchestrator tests)
+- 5 new test files: strategy selector, async runtime, decomposer, orchestrator service, orchestrator routes
+
+---
+
 ## [5.9.0] - 2026-05-12
 
 ### Added

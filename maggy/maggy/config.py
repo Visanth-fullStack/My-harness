@@ -181,6 +181,15 @@ class HeartbeatConfig:
 
 
 @dataclass
+class OrchestratorConfig:
+    enabled: bool = False
+    max_concurrent: int = 3
+    workspace_root: str = "~/.maggy/workspaces"
+    container_timeout: int = 600
+    decompose_threshold: int = 7
+
+
+@dataclass
 class MaggyConfig:
     org: OrgConfig = field(default_factory=OrgConfig)
     issue_tracker: IssueTrackerConfig = field(default_factory=IssueTrackerConfig)
@@ -196,6 +205,7 @@ class MaggyConfig:
     routing: RoutingConfig = field(default_factory=RoutingConfig)
     mesh: MeshConfig = field(default_factory=MeshConfig)
     heartbeat: HeartbeatConfig = field(default_factory=HeartbeatConfig)
+    orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
 
     def codebase_paths(self) -> dict[str, Path]:
         """Return {key: expanded_path} for all configured codebases."""
