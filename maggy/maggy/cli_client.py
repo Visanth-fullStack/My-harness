@@ -242,3 +242,22 @@ class MaggyClient:
         )
         self._handle_error(r)
         return r.json()
+
+    # ── Monitor ────────────────────────────────────
+
+    def monitor_status(self) -> dict:
+        return self.get("/api/monitor/status")
+
+    def monitor_start(self) -> dict:
+        return self.post("/api/monitor/start", {})
+
+    def monitor_stop(self) -> dict:
+        return self.post("/api/monitor/stop", {})
+
+    # ── Health ─────────────────────────────────────
+
+    def health_dashboard(self) -> dict:
+        return self.get("/api/engram/diagnostics")
+
+    def engram_diagnostics(self) -> dict:
+        return self.get("/api/engram/diagnostics")

@@ -30,6 +30,8 @@ def _mock_client():
         "spent_today_usd": 1.5,
         "daily_limit_usd": 10.0,
         "status": "ok",
+        "input_tokens": 12500,
+        "output_tokens": 3400,
     }
     c.budget_by_provider.return_value = [
         {"provider": "anthropic", "spent_usd": 1.2},
@@ -120,6 +122,22 @@ def test_cmd_claude_md_missing(capsys):
     assert "not found" in out.lower() or "no" in out.lower()
 
 
+def test_cmd_stats_shows_tokens(capsys):
+    """Stats displays token counts when available."""
+    cmd_stats(_mock_client())
+    out = capsys.readouterr().out
+    assert "12,500" in out
+    assert "3,400" in out
+
+
+def test_cmd_route_shows_tiers(capsys):
+    """Route displays blast tier reference."""
+    cmd_route(_mock_client())
+    out = capsys.readouterr().out
+    assert "cheap" in out.lower()
+    assert "premium" in out.lower()
+
+
 def test_cmd_help(capsys):
     """Help lists all commands."""
     cmd_help()
@@ -127,3 +145,86 @@ def test_cmd_help(capsys):
     assert "/stats" in out
     assert "/use" in out
     assert "/help" in out
+
+
+def test_cmd_health(capsys):
+    """Health shows engram and mnemos status."""
+    from maggy.cli_repl_cmds import cmd_health
+    client = _mock_client()
+    client.health_dashboard.return_value = {
+        "engram": {"health_score": 0.85, "active": 42, "total": 50},
+        "mnemos": {"state": "ok", "composite": 0.3},
+    }
+    cmd_health(client)
+    out = capsys.readouterr().out
+    assert "85%" in out or "0.85" in out
+    assert "ok" in out.lower()
+
+
+def test_dispatch_health(capsys):
+    """/health dispatches to health handler."""
+    client = _mock_client()
+    client.health_dashboard.return_value = {
+        "engram": {"health_score": 0.9, "active": 10, "total": 12},
+        "mnemos": {"state": "ok", "composite": 0.2},
+    }
+    state = FakeState()
+    handled = dispatch("/health", client, state)
+    assert handled is True
+
+
+def test_help_lists_health(capsys):
+    """/help mentions /health command."""
+    cmd_help()
+    out = capsys.readouterr().out
+    assert "/health" in out
+
+
+def test_models_empty_shows_known(capsys):
+    """Empty heatmap shows known model names."""
+    from maggy.cli_repl_cmds import cmd_models
+    client = _mock_client()
+    client.models_heatmap.return_value = []
+    cmd_models(client)
+    out = capsys.readouterr().out
+    assert "local" in out
+    assert "claude" in out
+
+
+def test_use_warns_unknown_model(capsys):
+    """/use with unknown model name prints warning."""
+    state = FakeState()
+    cmd_use("badmodel,claude", state)
+    out = capsys.readouterr().out
+    assert "unknown" in out.lower() or "Unknown" in out
+
+
+def test_budget_subscription_plan(capsys):
+    """Subscription plan shows 'Subscription' instead of dollar amounts."""
+    client = _mock_client()
+    client.budget_summary.return_value = {
+        "spent_today_usd": 0, "daily_limit_usd": 10.0,
+        "status": "ok", "plan": "subscription",
+    }
+    client.budget_by_provider.return_value = []
+    cmd_budget(client)
+    out = capsys.readouterr().out
+    assert "subscription" in out.lower()
+
+
+def test_health_graceful_failure(capsys):
+    """Health command handles server failure gracefully."""
+    from maggy.cli_repl_cmds import cmd_health
+    client = _mock_client()
+    client.health_dashboard.side_effect = Exception("unreachable")
+    cmd_health(client)
+    out = capsys.readouterr().out
+    assert "health" in out.lower() or out == ""
+
+
+def test_stats_server_down(capsys):
+    """Stats handles server failure gracefully."""
+    client = _mock_client()
+    client.budget_summary.side_effect = Exception("unreachable")
+    cmd_stats(client)
+    # Should not crash — may show empty or partial data

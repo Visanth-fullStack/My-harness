@@ -52,6 +52,10 @@ def _setup_new(mock_client):
     mock_client.chat_sessions.return_value = []
     mock_client.chat_create.return_value = SESSION
     mock_client.chat_history.return_value = {"messages": []}
+    mock_client.budget_summary.return_value = {
+        "spent_today_usd": 0, "daily_limit_usd": 10, "status": "ok",
+    }
+    mock_client.models_heatmap.return_value = []
 
 
 @patch("maggy.cli._client")
@@ -72,6 +76,10 @@ def test_chat_resumes_existing(mock_client):
     mock_client.ensure_server.return_value = True
     mock_client.chat_sessions.return_value = [RESUMED]
     mock_client.chat_history.return_value = HISTORY
+    mock_client.budget_summary.return_value = {
+        "spent_today_usd": 0, "daily_limit_usd": 10, "status": "ok",
+    }
+    mock_client.models_heatmap.return_value = []
     with patch("maggy.cli_chat.Prompt") as mp:
         mp.ask.side_effect = ["/quit"]
         result = runner.invoke(app, ["chat", "my-proj"])
@@ -177,3 +185,86 @@ def test_chat_error_displayed(mock_client):
         mp.ask.side_effect = ["test", "/quit"]
         result = runner.invoke(app, ["chat", "my-proj"])
     assert result.exit_code == 0
+
+
+@patch("maggy.cli._client")
+def test_chat_shows_queued_status(mock_client):
+    _setup_new(mock_client)
+    mock_client.chat_send_routed.return_value = iter([
+        {"type": "queued", "position": 2},
+    ])
+    with patch("maggy.cli_chat.Prompt") as mp:
+        mp.ask.side_effect = ["test", "/quit"]
+        result = runner.invoke(app, ["chat", "my-proj"])
+    assert result.exit_code == 0
+
+
+@patch("maggy.cli._client")
+def test_chat_shows_warning(mock_client):
+    _setup_new(mock_client)
+    mock_client.chat_send_routed.return_value = iter([
+        {"type": "warning", "content": "Context: ~25000 tokens"},
+        {"type": "text", "content": "Hi"},
+        {"type": "done"},
+    ])
+    with patch("maggy.cli_chat.Prompt") as mp:
+        mp.ask.side_effect = ["test", "/quit"]
+        result = runner.invoke(app, ["chat", "my-proj"])
+    assert result.exit_code == 0
+
+
+@patch("maggy.cli._client")
+def test_chat_exit_word_quits(mock_client):
+    """Typing 'exit' terminates the REPL (not routed to LLM)."""
+    _setup_new(mock_client)
+    with patch("maggy.cli_chat.Prompt") as mp:
+        mp.ask.side_effect = ["exit"]
+        result = runner.invoke(app, ["chat", "my-proj"])
+    assert result.exit_code == 0
+    mock_client.chat_send_routed.assert_not_called()
+
+
+@patch("maggy.cli._client")
+def test_chat_agent_status_rendered(mock_client):
+    """Agent status chunks render @model> step status."""
+    _setup_new(mock_client)
+    mock_client.chat_send_routed.return_value = iter([
+        {"type": "agent_status", "agent": "local",
+         "step": "ANALYZE", "status": "running"},
+        {"type": "text", "content": "Done"},
+        {"type": "done"},
+    ])
+    with patch("maggy.cli_chat.Prompt") as mp:
+        mp.ask.side_effect = ["test", "/quit"]
+        result = runner.invoke(app, ["chat", "my-proj"])
+    assert result.exit_code == 0
+    assert "@local" in result.output
+
+
+@patch("maggy.cli._client")
+def test_chat_quota_error_shows_guide(mock_client):
+    """Quota error triggers account switch guidance."""
+    _setup_new(mock_client)
+    mock_client.chat_send_routed.return_value = iter([
+        {"type": "error",
+         "content": "rate_limit_exceeded: quota hit"},
+        {"type": "done"},
+    ])
+    with patch("maggy.cli_chat.Prompt") as mp:
+        mp.ask.side_effect = ["test", "/quit"]
+        result = runner.invoke(app, ["chat", "my-proj"])
+    assert result.exit_code == 0
+    out = result.output.lower()
+    assert "switch" in out or "login" in out or "account" in out
+
+
+@patch("maggy.cli._client")
+def test_chat_prompt_uses_angle_bracket(mock_client):
+    """Prompt uses '>' character, not 'maggy:'."""
+    _setup_new(mock_client)
+    with patch("maggy.cli_chat.Prompt") as mp:
+        mp.ask.side_effect = ["/quit"]
+        runner.invoke(app, ["chat", "my-proj"])
+    call_args = mp.ask.call_args[0][0]
+    assert ">" in call_args
+    assert "maggy" not in call_args.lower()

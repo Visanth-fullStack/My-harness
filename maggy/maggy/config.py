@@ -147,6 +147,7 @@ class BudgetConfig:
     daily_limit_usd: float = 10.0
     max_spend_per_task: float = 5.0
     warning_threshold: float = 0.8
+    plan: str = "daily"
     providers: list["ProviderBudget"] = field(default_factory=list)
 
 

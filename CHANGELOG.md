@@ -6,6 +6,77 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [5.8.0] - 2026-05-12
+
+### Fixed
+
+#### UX Fix Pass (12 issues from manual CLI testing)
+- **Prompt character** — Changed from `maggy:` to `>` for cleaner input (`cli_chat.py:76`)
+- **Ctrl+C during streaming** — Now cancels current response instead of exiting REPL. Added `except KeyboardInterrupt` in `_stream_chunks` (`cli_chat.py:161`)
+- **`/health` 404** — Client was calling `/api/health/memory` (non-existent). Fixed to call `/api/engram/diagnostics` (`cli_client.py:260`)
+- **`/route`, `/models`, `/budget`, `/stats`, `/health`, `/config` crash on server down** — Added `_call(fn, default)` safe wrapper that catches `Exception` and `SystemExit` from unreachable server. All display commands return fallback data instead of crashing (`cli_repl_cmds.py:18`)
+- **Models shows "0 tracked" / "No data yet"** — When heatmap is empty, now shows the 5 known model tiers (local, kimi, gpt, claude, codex) with 0 samples (`cli_repl_cmds.py:129`)
+- **`/use` accepts invalid model names** — Now validates against `_KNOWN_MODELS`, prints warning for unknown names while still setting the restriction (`cli_repl_cmds.py:147`)
+- **Dir shows "?"** — Welcome banner now falls back to `os.getcwd()` when session `working_dir` is empty (`cli_welcome.py:36`)
+
+### Added
+
+#### Budget Subscription Awareness
+- **`plan` field** on `BudgetConfig` — Users set `budget.plan: subscription` in `~/.maggy/config.yaml` (`config.py:150`)
+- **`BudgetManager.budget_status()`** includes `plan` in response (`budget.py:163`)
+- **`/budget`** shows "Subscription" instead of "$0.00 / $10.00" when plan is subscription (`cli_repl_cmds.py:87`)
+- **Welcome banner** shows "Subscription" for subscription plans (`cli_welcome.py:54`)
+
+#### Welcome Banner Improvements
+- **Models count** — Shows "5 available" (known model count) instead of "0 tracked" when no heatmap data (`cli_welcome.py:62`)
+
+### Changed
+- **`_HELP` compressed** — 2-column layout saves 6 lines, fits all new features within 200-line limit (`cli_repl_cmds.py:191`)
+
+### Tests
+- `test_repl_cmds.py` — +5 tests: models_empty_shows_known, use_warns_unknown_model, budget_subscription_plan, health_graceful_failure, stats_server_down
+- `test_cli_welcome.py` — +3 tests: dir_shows_cwd_fallback, models_shows_available_count, budget_subscription_welcome
+- `test_cli_chat.py` — +1 test: chat_prompt_uses_angle_bracket
+- **Total: 825 tests passing** (816 + 9 new)
+
+---
+
+## [5.7.0] - 2026-05-12
+
+### Added
+
+#### `/monitor` Command — Background Tracker Polling
+- **`maggy/services/monitor.py`** — MonitorService with SQLite-backed polling for GitHub PRs and Monday.com items. `MonitorConfig` and `MonitorEvent` dataclasses, `add/remove/list_active/is_new/mark_seen/status/poll` methods
+- **`maggy/providers/monday.py`** — Monday.com provider implementing `IssueTrackerProvider` protocol via GraphQL API. Maps board items to Task dataclass
+- **`maggy/api/routes_monitor.py`** — REST endpoints: `GET /api/monitor/status`, `POST /api/monitor/start`, `POST /api/monitor/stop`
+- **`/monitor` handler** in REPL — shows active monitor count (`cli_chat.py:94`)
+
+#### `/health` Command — Memory Health Dashboard
+- **`cmd_health()`** — Shows Engram health score (color-coded) and Mnemos fatigue state in Rich Panel (`cli_repl_cmds.py:180`)
+- **`health_dashboard()`** and **`engram_diagnostics()`** client methods (`cli_client.py:259`)
+
+#### Enhanced Welcome Banner
+- **`cli_welcome.py`** — New file with Rich Panel welcome banner showing project info, budget, models, status, and memory health score
+
+#### Search Routing to Local Model
+- **"search" type** added to `TYPE_KEYWORDS` in `chat_router.py` — 11 keywords (find, search, grep, where, locate, which, look, scan, show, list, read) route to local/Qwen model for free
+
+#### Account Switching Guidance
+- **`maggy/services/account_guide.py`** — Detects CLI auth profiles from `~/.claude/`, `~/.codex/`. `suggest_switch()` returns CLI instructions, `render_switch_guide()` prints Rich-formatted guidance
+- **Quota error detection** — `_QUOTA_MARKERS` in `cli_chat.py` triggers account switch guidance on rate limit errors
+
+### Tests
+- `test_monitor.py` — 8 tests for MonitorService
+- `test_monday_provider.py` — 6 tests for MondayProvider
+- `test_account_guide.py` — 5 tests for account switching
+- `test_chat_router.py` — +3 tests for search type detection
+- `test_repl_cmds.py` — +3 tests for health command
+- `test_cli_welcome.py` — +2 tests for health and session history
+- `test_cli_chat.py` — +1 test for quota error guidance
+- **Total: 816 tests passing** (788 + 28 new)
+
+---
+
 ## [5.1.0] - 2026-05-11
 
 ### Added

@@ -6,11 +6,15 @@ import sqlite3
 import tempfile
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
 from maggy.config import MaggyConfig
+
+
+def _today_utc() -> str:
+    return datetime.now(timezone.utc).date().isoformat()
 
 
 @contextmanager
@@ -40,6 +44,8 @@ CREATE TABLE IF NOT EXISTS spend (
     provider TEXT NOT NULL,
     model TEXT NOT NULL,
     cost_usd REAL NOT NULL,
+    input_tokens INTEGER NOT NULL DEFAULT 0,
+    output_tokens INTEGER NOT NULL DEFAULT 0,
     day TEXT NOT NULL,
     created_at TEXT NOT NULL
 );
@@ -90,6 +96,7 @@ class BudgetManager:
 
     def __init__(self, cfg: MaggyConfig):
         self.daily_limit = cfg.budget.daily_limit_usd
+        self._plan = cfg.budget.plan
         self.providers = list(cfg.budget.providers)
         self._provider_budgets = {
             item.provider: item for item in self.providers
@@ -105,76 +112,68 @@ class BudgetManager:
 
     def record_spend(
         self, provider: str, model: str, cost_usd: float,
+        input_tokens: int = 0, output_tokens: int = 0,
     ) -> None:
-        """Record a spend event."""
         now = datetime.now(timezone.utc)
         with _connect(self._db_path) as conn:
             conn.execute(
                 "INSERT INTO spend "
-                "(provider, model, cost_usd, day, created_at) "
-                "VALUES (?, ?, ?, ?, ?)",
-                (provider, model, cost_usd,
+                "(provider,model,cost_usd,input_tokens,output_tokens,day,created_at) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (provider, model, cost_usd, input_tokens, output_tokens,
                  now.date().isoformat(), now.isoformat()),
             )
             conn.commit()
 
-    def today_spend(
-        self, provider: str | None = None,
-    ) -> float:
-        """Get total spend for today."""
-        today = date.today().isoformat()
+    def today_spend(self, provider: str | None = None) -> float:
+        today = _today_utc()
+        sql = "SELECT COALESCE(SUM(cost_usd),0) FROM spend WHERE day=?"
+        params: list = [today]
+        if provider:
+            sql += " AND provider=?"
+            params.append(provider)
         with _connect(self._db_path) as conn:
-            if provider:
-                row = conn.execute(
-                    "SELECT COALESCE(SUM(cost_usd), 0) "
-                    "FROM spend "
-                    "WHERE day = ? AND provider = ?",
-                    (today, provider),
-                ).fetchone()
-            else:
-                row = conn.execute(
-                    "SELECT COALESCE(SUM(cost_usd), 0) "
-                    "FROM spend WHERE day = ?",
-                    (today,),
-                ).fetchone()
+            row = conn.execute(sql, params).fetchone()
         return float(row[0])
 
+    def today_tokens(self, provider: str | None = None) -> dict:
+        today = _today_utc()
+        sql = ("SELECT COALESCE(SUM(input_tokens),0),"
+               "COALESCE(SUM(output_tokens),0) FROM spend WHERE day=?")
+        params: list = [today]
+        if provider:
+            sql += " AND provider=?"
+            params.append(provider)
+        with _connect(self._db_path) as conn:
+            row = conn.execute(sql, params).fetchone()
+        return {"input": int(row[0]), "output": int(row[1])}
+
     def budget_status(self) -> dict:
-        """Return current budget status with warnings."""
         spent = self.today_spend()
-        ratio = (
-            spent / self.daily_limit
-            if self.daily_limit > 0
-            else 0
-        )
-        if ratio >= 1.0:
-            status = "exhausted"
-        elif ratio >= self.warning_threshold:
-            status = "warning"
-        else:
-            status = "ok"
+        ratio = spent / self.daily_limit if self.daily_limit > 0 else 0
+        status = "exhausted" if ratio >= 1.0 else (
+            "warning" if ratio >= self.warning_threshold else "ok")
+        tokens = self.today_tokens()
         return {
             "spent_today_usd": round(spent, 4),
             "daily_limit_usd": self.daily_limit,
             "utilization": round(ratio, 3),
             "status": status,
+            "plan": self._plan,
+            "input_tokens": tokens["input"],
+            "output_tokens": tokens["output"],
         }
 
     def by_provider(self) -> list[dict]:
-        """Get today's spend broken down by provider."""
-        today = date.today().isoformat()
+        today = _today_utc()
         with _connect(self._db_path) as conn:
             rows = conn.execute(
                 "SELECT provider, SUM(cost_usd) as total "
-                "FROM spend WHERE day = ? "
-                "GROUP BY provider",
+                "FROM spend WHERE day=? GROUP BY provider",
                 (today,),
             ).fetchall()
         return [
-            {
-                "provider": r["provider"],
-                "spent_usd": round(r["total"], 4),
-            }
+            {"provider": r["provider"], "spent_usd": round(r["total"], 4)}
             for r in rows
         ]
 

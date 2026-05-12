@@ -34,6 +34,10 @@ TYPE_KEYWORDS: dict[str, frozenset[str]] = {
         "security", "permission", "token",
         "encrypt", "vulnerability", "oauth", "csrf",
     }),
+    "search": frozenset({
+        "find", "search", "grep", "where", "locate",
+        "which", "look", "scan", "show", "list", "read",
+    }),
     "docs": frozenset({
         "document", "documentation", "readme", "docs",
         "docstring", "comment", "spec", "jsdoc", "write",
@@ -48,6 +52,15 @@ TYPE_KEYWORDS: dict[str, frozenset[str]] = {
     }),
 }
 DEFAULT_BLAST = 5
+_RETRIEVAL = re.compile(
+    r"\b(find|get|show|check|where|list|read|look|grab|pick)\b",
+    re.IGNORECASE,
+)
+_MUTATION = re.compile(
+    r"\b(create|add|build|implement|write|refactor|migrate"
+    r"|redesign|overhaul|deploy)\b",
+    re.IGNORECASE,
+)
 
 
 def estimate_blast(message: str) -> int:
@@ -55,9 +68,18 @@ def estimate_blast(message: str) -> int:
     if not message.strip():
         return DEFAULT_BLAST
     words = set(re.findall(r"[a-zA-Z]+", message.lower()))
+    has_kw = words & (HIGH_KEYWORDS | MID_KEYWORDS | LOW_KEYWORDS)
+    if len(words) <= 3 and not has_kw:
+        return 1
     high = len(words & HIGH_KEYWORDS)
     mid = len(words & MID_KEYWORDS)
     low = len(words & LOW_KEYWORDS)
+    score = _keyword_score(high, mid, low)
+    return _apply_intent(message, score)
+
+
+def _keyword_score(high: int, mid: int, low: int) -> int:
+    """Score based on keyword tier counts."""
     if high >= 2:
         return min(9, 7 + high - 2)
     if high == 1:
@@ -70,7 +92,16 @@ def estimate_blast(message: str) -> int:
         return 6
     if mid >= 1:
         return 5
-    return DEFAULT_BLAST
+    return 1
+
+
+def _apply_intent(message: str, score: int) -> int:
+    """Cap score for retrieval-only messages."""
+    is_retrieval = bool(_RETRIEVAL.search(message))
+    is_mutation = bool(_MUTATION.search(message))
+    if is_retrieval and not is_mutation and score < 7:
+        return min(score, 3)
+    return score
 
 
 def estimate_type(message: str) -> str:
