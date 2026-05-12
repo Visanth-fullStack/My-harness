@@ -440,7 +440,7 @@ async function loadChat() {
 
 function renderChatUI(pane) {
   const sessions = CHAT_SESSIONS_CACHE;
-  let html = `<div class="flex h-[calc(100vh-10rem)]">`;
+  let html = `<div class="flex h-full">`;
   html += renderChatSidebar(sessions);
   html += renderChatMain();
   html += `</div>`;
@@ -572,6 +572,85 @@ function renderAssistantMsg(m) {
   </div></div>`;
 }
 
+// ── Knock-knock jokes for waiting state ──────────────────────────────
+const JOKES = [
+  ["Knock knock.", "Who's there?", "Git.", "Git who?", "Git commit or git out!"],
+  ["Knock knock.", "Who's there?", "Bug.", "Bug who?", "Bug off, I'm compiling!"],
+  ["Knock knock.", "Who's there?", "Cache.", "Cache who?", "Cache me outside, how bout dat?"],
+  ["Knock knock.", "Who's there?", "Docker.", "Docker who?", "Docker-ated environment, no excuses!"],
+  ["Knock knock.", "Who's there?", "Async.", "Async who?", "Async-ronously waiting for your response!"],
+  ["Knock knock.", "Who's there?", "Claude.", "Claude who?", "Claude-strophobic from all this context!"],
+  ["Knock knock.", "Who's there?", "Null.", "Null who?", "Exactly."],
+  ["Knock knock.", "Who's there?", "Recursion.", "Recursion who?", "Knock knock."],
+  ["Knock knock.", "Who's there?", "API.", "API who?", "A-PI-ece of cake, this task!"],
+  ["Knock knock.", "Who's there?", "Sudo.", "Sudo who?", "Sudo make me a sandwich!"],
+  ["Knock knock.", "Who's there?", "404.", "404 who?", "Page not found. Try again."],
+  ["Knock knock.", "Who's there?", "Python.", "Python who?", "Python my way through this code!"],
+  ["Knock knock.", "Who's there?", "SSH.", "SSH who?", "SSH! I'm debugging!"],
+  ["Knock knock.", "Who's there?", "Token.", "Token who?", "Token my time thinking about this!"],
+  ["Knock knock.", "Who's there?", "React.", "React who?", "React-ing to your code changes!"],
+  ["Knock knock.", "Who's there?", "Lint.", "Lint who?", "Lint-eresting, no errors this time!"],
+  ["Knock knock.", "Who's there?", "SQL.", "SQL who?", "SQL-ling my secrets to the database!"],
+  ["Knock knock.", "Who's there?", "Merge.", "Merge who?", "Merge conflict! Good luck."],
+  ["Knock knock.", "Who's there?", "AI.", "AI who?", "AI'll handle this, don't worry!"],
+  ["Knock knock.", "Who's there?", "Regex.", "Regex who?", "Regex-ter your patterns carefully!"],
+  ["Knock knock.", "Who's there?", "Java.", "Java who?", "Java nice day for some coding!"],
+  ["Knock knock.", "Who's there?", "Npm.", "Npm who?", "Npm install patience --save!"],
+  ["Knock knock.", "Who's there?", "REST.", "REST who?", "REST assured, I'm working on it!"],
+  ["Knock knock.", "Who's there?", "Stack.", "Stack who?", "Stack Overflow to the rescue!"],
+  ["Knock knock.", "Who's there?", "Bit.", "Bit who?", "Bit by bit, we'll get there!"],
+  ["Knock knock.", "Who's there?", "CSS.", "CSS who?", "CSS-iously, fix the layout!"],
+  ["Knock knock.", "Who's there?", "Debug.", "Debug who?", "De-bug stops here!"],
+  ["Knock knock.", "Who's there?", "Hash.", "Hash who?", "Hash browns! Wait, wrong hash."],
+  ["Knock knock.", "Who's there?", "Array.", "Array who?", "Array of sunshine on a cloudy day!"],
+  ["Knock knock.", "Who's there?", "Rust.", "Rust who?", "Rust-le up some safe code!"],
+  ["Knock knock.", "Who's there?", "Branch.", "Branch who?", "Branch out and try something new!"],
+  ["Knock knock.", "Who's there?", "Deploy.", "Deploy who?", "Deploy the code before Friday!"],
+  ["Knock knock.", "Who's there?", "YAML.", "YAML who?", "YAML never believe this config!"],
+  ["Knock knock.", "Who's there?", "Pod.", "Pod who?", "Pod-cast about Kubernetes!"],
+  ["Knock knock.", "Who's there?", "Test.", "Test who?", "Test-ify that the code works!"],
+  ["Knock knock.", "Who's there?", "JSON.", "JSON who?", "JSON the right track!"],
+  ["Knock knock.", "Who's there?", "Shell.", "Shell who?", "Shell we dance... in the terminal?"],
+  ["Knock knock.", "Who's there?", "Ping.", "Ping who?", "Ping me when you're done!"],
+  ["Knock knock.", "Who's there?", "Vim.", "Vim who?", "Vim trying to exit for hours!"],
+  ["Knock knock.", "Who's there?", "Query.", "Query who?", "Query-ous about the results!"],
+  ["Knock knock.", "Who's there?", "CI.", "CI who?", "CI you later, pipeline's running!"],
+  ["Knock knock.", "Who's there?", "Pipe.", "Pipe who?", "Pipe down, I'm thinking!"],
+  ["Knock knock.", "Who's there?", "Thread.", "Thread who?", "Thread carefully, it's concurrent!"],
+  ["Knock knock.", "Who's there?", "Cron.", "Cron who?", "Cron-gratulations, it's scheduled!"],
+  ["Knock knock.", "Who's there?", "Port.", "Port who?", "Port 8080 is already in use!"],
+  ["Knock knock.", "Who's there?", "Float.", "Float who?", "Float your boat with IEEE 754!"],
+  ["Knock knock.", "Who's there?", "Agile.", "Agile who?", "Agile-ity is my middle name!"],
+  ["Knock knock.", "Who's there?", "Loop.", "Loop who?", "Loop de loop, infinite style!"],
+  ["Knock knock.", "Who's there?", "Schema.", "Schema who?", "Schema-ybe we need a migration!"],
+  ["Knock knock.", "Who's there?", "Webpack.", "Webpack who?", "Webpack your bags, we're shipping!"],
+];
+let _jokeTimer = null;
+
+function startJokeRotation(el) {
+  let idx = Math.floor(Math.random() * JOKES.length);
+  let step = 0;
+  const joke = JOKES[idx];
+  el.innerHTML = `<span class="text-orange-400">${esc(joke[0])}</span>`;
+  _jokeTimer = setInterval(() => {
+    step++;
+    if (step >= joke.length) {
+      idx = (idx + 1) % JOKES.length;
+      step = 0;
+      const next = JOKES[idx];
+      el.innerHTML = `<span class="text-orange-400">${esc(next[0])}</span>`;
+    } else {
+      const j = JOKES[idx];
+      const cls = step % 2 === 1 ? 'text-gray-500' : 'text-orange-400';
+      el.innerHTML += `<br><span class="${cls}">${esc(j[step])}</span>`;
+    }
+  }, 1800);
+}
+
+function stopJokeRotation() {
+  if (_jokeTimer) { clearInterval(_jokeTimer); _jokeTimer = null; }
+}
+
 async function sendChatMessage() {
   const input = document.getElementById('chat-input');
   if (!input) return;
@@ -582,15 +661,17 @@ async function sendChatMessage() {
   const el = document.getElementById('chat-messages');
   el.innerHTML += renderUserMsg({ content: message, timestamp: '' });
   el.innerHTML += `<div id="stream-response" class="flex justify-start"><div class="max-w-[80%] card px-3 py-2">
-    <pre id="stream-text" class="text-xs text-gray-300"><i class="fas fa-spinner fa-spin text-orange-400"></i> Claude is thinking…</pre>
+    <pre id="stream-text" class="text-xs text-gray-300"></pre>
   </div></div>`;
   el.scrollTop = el.scrollHeight;
+  const streamEl = document.getElementById('stream-text');
+  startJokeRotation(streamEl);
   try {
     await streamChatResponse(message, el);
   } catch (e) {
-    const streamEl = document.getElementById('stream-text');
     if (streamEl) streamEl.innerHTML = `<span class="text-red-400">Error: ${esc(e.message)}</span>`;
   }
+  stopJokeRotation();
   input.disabled = false;
   input.focus();
 }
@@ -616,7 +697,7 @@ async function streamChatResponse(message, el) {
         const data = JSON.parse(line.slice(6));
         if (data.type === 'done') continue;
         if (data.type === 'error') { streamEl.innerHTML = `<span class="text-red-400">${esc(data.content)}</span>`; continue; }
-        if (data.content) { responseText += data.content; streamEl.textContent = responseText; el.scrollTop = el.scrollHeight; }
+        if (data.content) { if (!responseText) stopJokeRotation(); responseText += data.content; streamEl.textContent = responseText; el.scrollTop = el.scrollHeight; }
       } catch {}
     }
   }

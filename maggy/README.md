@@ -5,6 +5,9 @@
 Install once, point it at your codebases and issue tracker, and get:
 
 - **Interactive Chat** — auto-connects to all active Claude/Codex/Kimi sessions with multi-model routing
+- **Semantic Intent Classification** — local Ollama model classifies task type (review, security, tests, etc.) instead of brittle keyword matching
+- **Inline Model Forcing** — type "use claude" in any message to force a model, no flags needed
+- **Parallel Execution** — Polyphony container orchestration decomposes complex tasks into parallel subtasks
 - **AI-prioritized Tasks** — ranks open issues by urgency + OKR alignment
 - **One-click Execute** — spawns TDD pipeline with iCPG context enrichment and Codex/CodeRabbit review
 - **Multi-Model Routing** — blast-score routing across Local/Kimi/Codex/Claude with reward learning
@@ -103,6 +106,10 @@ Opens the web dashboard at `http://localhost:8080`. The server runs in the foreg
 ```bash
 maggy chat api           # routed mode (blast-score picks the model)
 maggy chat api --direct  # direct mode (always Claude)
+
+# Inside chat, force a model inline:
+> use claude and review the auth module
+> use codex to fix the failing tests
 ```
 
 ### CLI Commands
@@ -164,6 +171,10 @@ Every message gets a **blast score** (0-10) based on complexity, then routes to 
 | 4-6 | Medium | Codex, Kimi |
 | 7-10 | High | Claude, Codex |
 
+**Semantic intent classification** — the local Ollama model classifies task type (review, security, search, docs, tests, frontend) instead of keyword matching. Falls back to keywords when Ollama is down.
+
+**Inline model forcing** — type "use claude" / "use codex" / "use kimi" / "use local" anywhere in your message to override routing. The directive is stripped before sending to the model.
+
 The router learns from outcomes — every completed task records a reward that shifts future routing decisions. Security-sensitive tasks always route to premium models.
 
 ## Dashboard
@@ -181,7 +192,8 @@ Chat is the default tab — auto-connects to all running CLI sessions on load.
 ## Architecture
 
 - **Provider abstraction** — `IssueTrackerProvider` Protocol (GitHub, Asana)
-- **Multi-model routing** — blast-score + reward learning across 4 tiers
+- **Multi-model routing** — blast-score + semantic classification + reward learning across 4 tiers
+- **Polyphony orchestration** — parallel container execution for complex tasks (blast>=7)
 - **Config-driven** — zero hardcoded IDs, orgs, or competitor lists
 - **iCPG integration** — context enrichment from code property graph
 - **Engram memory** — SQLite-backed persistent memory with amnesia diagnostics
@@ -208,7 +220,7 @@ python3 -m pytest tests/ -x --tb=short # with tracebacks
 python3 -m pytest tests/ --cov=maggy   # with coverage
 ```
 
-843 tests, target coverage >= 80%.
+881 tests, target coverage >= 80%.
 
 ## License
 

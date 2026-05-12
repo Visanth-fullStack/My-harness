@@ -1,8 +1,4 @@
-"""Routed chat — blast-score routing for interactive messages.
-
-Estimates complexity from message keywords, routes to the optimal
-model via RoutingService, and builds CLI commands for any model.
-"""
+"""Routed chat — blast-score routing for interactive messages."""
 
 from __future__ import annotations
 
@@ -29,6 +25,10 @@ LOW_KEYWORDS = frozenset({
     "bump", "version", "config", "env", "update",
 })
 TYPE_KEYWORDS: dict[str, frozenset[str]] = {
+    "review": frozenset({
+        "review", "code_review", "pr", "pullrequest",
+        "audit", "inspect", "validate", "verify",
+    }),
     "security": frozenset({
         "auth", "authentication", "authorization",
         "security", "permission", "token",
@@ -61,6 +61,25 @@ _MUTATION = re.compile(
     r"|redesign|overhaul|deploy)\b",
     re.IGNORECASE,
 )
+
+
+_FORCE_RE = re.compile(
+    r"\buse\s+(claude|codex|kimi|local)\b", re.IGNORECASE,
+)
+
+
+def parse_model_force(message: str) -> tuple[str, str | None]:
+    """Extract 'use claude/codex/kimi/local' from message.
+
+    Returns (cleaned_message, forced_model_or_None).
+    """
+    m = _FORCE_RE.search(message)
+    if not m:
+        return message, None
+    model = m.group(1).lower()
+    cleaned = (message[:m.start()] + message[m.end():]).strip()
+    cleaned = re.sub(r"\s{2,}", " ", cleaned)
+    return cleaned, model
 
 
 def estimate_blast(message: str) -> int:
@@ -134,15 +153,33 @@ class RoutedChat:
         self._routing = routing
         self._budget = budget
 
-    def decide(
+    async def decide(
         self,
         message: str,
         blast_override: int | None = None,
         type_override: str | None = None,
     ) -> RouteDecision:
-        """Get routing decision for a message."""
-        blast = blast_override or estimate_blast(message)
-        task_type = type_override or estimate_type(message)
+        """Get routing decision for a message.
+
+        Uses semantic classification via local Ollama model.
+        Supports inline model forcing: 'use claude/codex/kimi/local'.
+        """
+        cleaned, forced = parse_model_force(message)
+        blast = blast_override or estimate_blast(cleaned)
+        if type_override:
+            task_type = type_override
+        else:
+            from maggy.services.intent_classifier import (
+                classify_intent,
+            )
+            task_type = await classify_intent(cleaned)
+        if forced:
+            return RouteDecision(
+                model=forced,
+                reason=f"user forced '{forced}'",
+                blast=blast,
+                task_type=task_type,
+            )
         ctx = RoutingContext(
             blast_score=blast, task_type=task_type,
         )

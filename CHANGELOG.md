@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [6.1.0] - 2026-05-12
+
+### Added
+
+#### Semantic Intent Classification
+- **`services/intent_classifier.py`** — Replaces brittle keyword matching with semantic classification via local Ollama model (`qwen3-coder:30b-a3b-q8_0`). Sends a short JSON-mode prompt to `localhost:11434/api/chat`, classifies into: review, security, search, docs, tests, frontend, general. 5s timeout, temperature 0. Falls back to keyword `estimate_type()` when Ollama is unavailable. Zero cost (local model).
+
+#### Natural Language Model Forcing
+- **`services/chat_router.py`** — `parse_model_force()` detects "use claude" / "use codex" / "use kimi" / "use local" inline in any chat message. Strips the directive, forces the model regardless of blast score. No flags or config needed — just type "use claude and review my code".
+
+#### Review Task Type
+- **`services/chat_router.py`** — Added "review" to `TYPE_KEYWORDS` (review, code_review, pr, pullrequest, audit, inspect, validate, verify) as keyword fallback. Semantic classifier handles primary detection.
+
+#### Chat UX — Input Anchored to Bottom
+- **`static/index.html`** — Outer container switched from `min-h-screen` to `h-screen flex flex-col overflow-hidden`. Main fills remaining viewport. Panes take full height. Input bar permanently anchored at bottom like Claude Code.
+
+#### Chat UX — Knock-Knock Jokes While Waiting
+- **`static/app.js`** — 50 dev-themed knock-knock jokes (git, docker, async, vim, regex, etc.) cycle every 1.8s while the model is thinking. Stops immediately when the first response chunk arrives.
+
+### Changed
+- `RoutedChat.decide()` is now async — calls `classify_intent()` for semantic classification, with keyword `estimate_type()` as degraded fallback path.
+
+### Stats
+- 881 tests passing (874 + 7 new intent classifier tests)
+
+---
+
 ## [6.0.0] - 2026-05-12
 
 ### Added

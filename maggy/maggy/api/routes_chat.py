@@ -220,7 +220,7 @@ async def send_routed(
         decision = None
         if routing:
             rc = RoutedChat(routing, budget)
-            decision = rc.decide(
+            decision = await rc.decide(
                 body.message, body.blast_score, body.task_type,
             )
             allowed = body.allowed_models

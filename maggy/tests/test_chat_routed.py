@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -97,8 +97,11 @@ class TestRoutedEndpoint:
         mock_budget.check.return_value = True
 
         rc = RoutedChat(mock_routing, mock_budget)
-        # We only test the routing decision, not the full send
-        decision = rc.decide("design auth system", None, None)
+        with patch(
+            "maggy.services.intent_classifier.classify_intent",
+            new=AsyncMock(return_value="security"),
+        ):
+            decision = await rc.decide("design auth system", None, None)
         assert decision is not None
         mock_routing.route.assert_called_once()
 
