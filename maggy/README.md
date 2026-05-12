@@ -4,24 +4,42 @@
 
 Install once, point it at your codebases and issue tracker, and get:
 
-- **Interactive Chat** — auto-connects to all active Claude/Codex/Kimi sessions, take over from the web UI with full session continuity (`--resume`)
+- **Interactive Chat** — auto-connects to all active Claude/Codex/Kimi sessions with multi-model routing
 - **AI-prioritized Tasks** — ranks open issues by urgency + OKR alignment
-- **One-click Execute** — spawns `claude -p` with iCPG-enriched prompts, runs TDD pipeline
+- **One-click Execute** — spawns TDD pipeline with iCPG context enrichment and Codex/CodeRabbit review
+- **Multi-Model Routing** — blast-score routing across Local/Kimi/Codex/Claude with reward learning
+- **Engram Memory** — persistent cross-session memory with amnesia diagnostics
 - **Competitor Intelligence** — auto-discovers competitors, daily AI briefing
-- **Process Insights** — CLI session history analysis, health signals, self-improvement recommendations
-- **P2P Mesh** — multi-node session sync and handoff across machines
-- **Auto-Bootstrap** — all services seed themselves on startup (history, CIKG, events)
+- **Process Insights** — CLI session history analysis, health signals
+- **Vision** — `/screenshot` analyzes images via local Qwen3-VL
+
+## Prerequisites
+
+- Python 3.11+
+- [Ollama](https://ollama.ai) (for local models)
+
+```bash
+# Pull the local models (optional but recommended)
+ollama pull qwen3-coder:30b-a3b
+ollama pull qwen3-vl:32b
+```
 
 ## Install
 
 ```bash
-cd maggy/maggy
-./install.sh
+cd maggy
+pip install -e .
+```
+
+This installs the `maggy` CLI command globally. Verify:
+
+```bash
+maggy --help
 ```
 
 ## Configure
 
-Edit `~/.maggy/config.yaml`:
+Create `~/.maggy/config.yaml`:
 
 ```yaml
 org:
@@ -40,6 +58,13 @@ codebases:
 
 competitors:
   categories: ["fintech", "embedded-finance"]
+
+budget:
+  plan: "subscription"  # or set daily_limit_usd: 10.0
+
+dashboard:
+  host: "127.0.0.1"
+  port: 8080
 ```
 
 Set credentials:
@@ -49,13 +74,97 @@ export GITHUB_TOKEN=ghp_...
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-## Run
+## Running Maggy
+
+### Quick Start — Interactive REPL
+
+Run `maggy` from inside a project directory:
 
 ```bash
-python3 -m maggy.main
+cd ~/dev/acmecorp/api
+maggy
 ```
 
-Open `http://localhost:8080`.
+This will:
+1. Auto-start the server if not already running
+2. Detect the current project from your working directory
+3. Drop you into an interactive REPL with multi-model routing
+
+### Start the Server + Web Dashboard
+
+```bash
+maggy serve
+```
+
+Opens the web dashboard at `http://localhost:8080`. The server runs in the foreground — use a separate terminal or background it.
+
+### Chat with a Specific Project
+
+```bash
+maggy chat api           # routed mode (blast-score picks the model)
+maggy chat api --direct  # direct mode (always Claude)
+```
+
+### CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `maggy` | Interactive REPL (auto-detects project) or starts dashboard |
+| `maggy serve` | Start server + web dashboard |
+| `maggy chat <project>` | Chat with a specific project |
+| `maggy status` | Server health and config summary |
+| `maggy inbox [--refresh]` | AI-ranked task inbox |
+| `maggy sessions` | List active AI sessions |
+| `maggy execute <task-id>` | Run TDD pipeline on a task |
+| `maggy execute <task-id> --plan` | Plan mode (no code changes) |
+| `maggy spawn <task>` | Spawn a background AI session |
+| `maggy ps` | List all managed sessions |
+| `maggy kill <session-id>` | Stop a managed session |
+| `maggy route <blast> [--type bug]` | Get routing decision for a complexity score |
+| `maggy budget` | Per-provider token budget |
+| `maggy models` | Model performance heatmap |
+| `maggy competitors [--briefing]` | Competitor intelligence |
+| `maggy process <project>` | Process health for a project |
+| `maggy config` | Show current config (redacted) |
+
+All commands accept `--json` for machine-readable output.
+
+### REPL Slash Commands
+
+Inside the interactive chat:
+
+| Command | Description |
+|---------|-------------|
+| `/stats` | Budget + model performance summary |
+| `/budget` | Per-provider spend breakdown |
+| `/route` | Routing rules and model strengths |
+| `/models` | Reward heatmap (model x task type x blast tier) |
+| `/use claude,codex` | Restrict to specific models this session |
+| `/use all` | Remove model restriction |
+| `/health` | Memory health + Mnemos fatigue |
+| `/config` | Configuration summary |
+| `/screenshot <path> [prompt]` | Analyze image via Qwen3-VL |
+| `/claude-md` | Render project's CLAUDE.md |
+| `/help` | List all commands |
+
+### From Inside Claude Code
+
+```
+/maggy-init   # interactive setup wizard
+/maggy        # launch dashboard
+```
+
+## How Routing Works
+
+Every message gets a **blast score** (0-10) based on complexity, then routes to the cheapest model that can handle it:
+
+| Blast Score | Tier | Models |
+|-------------|------|--------|
+| 0-3 | Low | Local (Qwen3-Coder), Kimi |
+| 4-6 | Medium | Codex, Kimi |
+| 7-10 | High | Claude, Codex |
+
+The router learns from outcomes — every completed task records a reward that shifts future routing decisions. Security-sensitive tasks always route to premium models.
 
 ## Dashboard
 
@@ -69,50 +178,37 @@ Navigation is grouped by intent:
 
 Chat is the default tab — auto-connects to all running CLI sessions on load.
 
-## From inside Claude Code
+## Architecture
 
-```
-/maggy-init   # interactive setup wizard
-/maggy        # launch dashboard
-```
+- **Provider abstraction** — `IssueTrackerProvider` Protocol (GitHub, Asana)
+- **Multi-model routing** — blast-score + reward learning across 4 tiers
+- **Config-driven** — zero hardcoded IDs, orgs, or competitor lists
+- **iCPG integration** — context enrichment from code property graph
+- **Engram memory** — SQLite-backed persistent memory with amnesia diagnostics
+- **SQLite-first** — single-user local install, zero infrastructure
+- **Auto-bootstrap** — all services seed on startup, no empty tabs
 
-## Features
-
-- **Interactive Chat** — SSE streaming, session continuity via `--resume`, path-based history matching, auto-connect to active CLI sessions
-- **Activity Scanner** — detects running `claude`, `codex`, `kimi` processes via `ps aux` + `lsof`
-- **History Analysis** — parses 260+ CLI sessions, topic extraction, session patterns
-- **Self-Improvement** — signal collection, health scoring, actionable recommendations
-- **CIKG Knowledge Graph** — codebase nodes, technology detection, landscape queries
-- **Event Spine** — structured event emission and querying across all services
-- **Engram Memory** — write/query/expire memory entries with metadata
-- **Budget Tracking** — daily spend limits with per-provider breakdown
-- **Model Routing** — reward-based heatmap for model selection by task type
-- **MCP Forge** — detects capability gaps from filesystem, suggests MCP tools
-- **P2P Mesh** — WebSocket sync, peer discovery, state quarantine, org-scoped networks
-- **Heartbeat** — scheduled jobs (history refresh, engram expiry, self-improve, mesh sync)
+See [docs/architecture-v5.md](./docs/architecture-v5.md) for the full v5 architecture reference.
 
 ## Hardening
 
-- **Working dir whitelist** — Execute and Chat both validate paths against configured codebase roots
+- **Working dir whitelist** — Execute and Chat validate paths against configured codebase roots
 - **Chat streaming lock** — per-session `asyncio.Lock` prevents concurrent subprocess spawning
 - **SSRF protection** — RSS/blog feed URLs validated before fetch (blocks loopback, private-network)
-- **CLAUDECODE env stripping** — subprocess spawning removes `CLAUDECODE` to allow nested Claude sessions
+- **Host-safety check** — refuses to bind to non-loopback with local auth mode
 - **Process lifecycle** — Claude subprocesses killed on timeout; non-zero exits marked failed
-- **Input validation** — Execute mode `Literal["tdd", "plan"]`; malformed IDs return 404
-- **503 onboarding mode** — unconfigured state returns 503 with setup pointer
-- **Safe external links** — scheme allowlist + `rel="noopener noreferrer"`
-- **No-cache static files** — `Cache-Control: no-store` prevents stale JS in browser
+- **Input validation** — execute mode `Literal["tdd", "plan"]`; malformed IDs return 404
 
-## Architecture
+## Tests
 
-See [PLAN.md](./PLAN.md) for the full architecture rationale.
+```bash
+cd maggy
+python3 -m pytest tests/ -x -q        # unit tests
+python3 -m pytest tests/ -x --tb=short # with tracebacks
+python3 -m pytest tests/ --cov=maggy   # with coverage
+```
 
-1. **Provider abstraction** — `IssueTrackerProvider` Protocol (GitHub, Asana, Linear stub)
-2. **Config-driven** — zero hardcoded IDs, orgs, or competitor lists
-3. **iCPG integration** — context enrichment from code property graph
-4. **SQLite-first** — single-user local install, zero setup
-5. **Auto-bootstrap** — all services seed on startup, no empty tabs
-6. **Grouped UI** — Work / Intel / System navigation by intent
+843 tests, target coverage >= 80%.
 
 ## License
 
