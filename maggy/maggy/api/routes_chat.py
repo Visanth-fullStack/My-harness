@@ -255,14 +255,20 @@ async def send_routed(
                 yield 'data: {"type": "done"}\n\n'
                 return
         had_error = False
+        review_content = ""
         async for chunk in chat.send(session_id, body.message):
             if budget and chunk.get("type") == "result":
                 _record_chat_spend(budget, chunk)
             if chunk.get("type") == "error":
                 had_error = True
+            if chunk.get("type") in ("text", "result"):
+                review_content += chunk.get("content", "")
             yield f"data: {json.dumps(chunk)}\n\n"
         _record_routing_outcome(
             routing, decision, had_error=had_error,
+        )
+        _record_review_eval(
+            request, decision, review_content,
         )
         yield 'data: {"type": "done"}\n\n'
 
@@ -279,6 +285,22 @@ def _record_chat_spend(budget, chunk: dict) -> None:
     out_t = chunk.get("output_tokens", 0)
     if cost or in_t or out_t:
         budget.record_spend("anthropic", "claude", cost, in_t, out_t)
+
+
+def _record_review_eval(
+    request: Request, decision, content: str,
+) -> None:
+    """Record reviewer findings if this was a review."""
+    if not decision or not content:
+        return
+    if getattr(decision, "task_type", "") != "review":
+        return
+    scores = getattr(request.app.state, "reviewer_scores", None)
+    if not scores:
+        return
+    from maggy.services.reviewer_eval import evaluate_review
+    model = getattr(decision, "model", "unknown")
+    evaluate_review(model, content, "review", scores)
 
 
 def _record_routing_outcome(routing, decision, *, had_error: bool) -> None:

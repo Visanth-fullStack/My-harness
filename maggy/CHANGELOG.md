@@ -1,5 +1,29 @@
 # Changelog
 
+## v0.6.10 — 2026-05-13
+
+### Added
+- **Reviewer evaluation & knowledge map** — tracks reviewer performance (CodeRabbit vs Codex vs local) by finding category (security, performance, style, logic, architecture) with time-decayed scoring; builds knowledge map so Maggy learns which reviewer is better at what
+- `review_scores.py` — SQLite-backed `ReviewerTable` with `record`, `best_reviewer`, `heatmap`, `compare` (same decay pattern as model rewards)
+- `services/reviewer_eval.py` — keyword-based finding categorization, `evaluate_review` records to ReviewerTable, `compare_reviewers` for side-by-side
+- `api/routes_review.py` — `/api/reviewers/heatmap` and `/api/reviewers/compare` endpoints
+- `/reviewers` CLI command shows reviewer × category performance heatmap
+- Review findings auto-recorded after review-type chat responses complete
+
+## v0.6.9 — 2026-05-13
+
+### Added
+- **Non-blocking REPL** — long-running tasks (CodeRabbit reviews, Codex analysis, etc.) now run in a background thread; REPL stays responsive with `bg>` prompt for `/status` and `/cancel` commands
+- `cli_bg_task.py` — thread-safe `TaskState` with `start_task`, `cancel_task`, `get_status`, `is_active`, `collect_result`
+- `/status` command shows background task progress (model, chunks, tool calls)
+- `/cancel` command stops a running background task
+
+### Changed
+- `_send_message()` returns `TaskState` for routed messages (background) or `None` for direct (blocking)
+- `_repl_loop()` enters `_bg_loop()` when a background task starts, accepting commands during streaming
+- `cmd_stats` moved from `cli_repl_cmds.py` to `cli_repl_info.py`
+- `SessionState` has `bg_task` field for background task tracking
+
 ## v0.6.8 — 2026-05-13
 
 ### Fixed

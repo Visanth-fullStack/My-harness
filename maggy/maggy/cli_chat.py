@@ -6,6 +6,12 @@ from pathlib import Path
 from rich.console import Console
 from rich.prompt import Prompt
 
+from maggy.cli_bg_task import (
+    TaskState,
+    collect_result,
+    is_active,
+    start_task,
+)
 from maggy.cli_context import gather_cli_context
 from maggy.cli_repl_cmds import SessionState, dispatch
 from maggy.cli_stream import stream_chunks
@@ -77,8 +83,43 @@ def _repl_loop(
         if dispatch(stripped, client, state):
             continue
         msg = _with_context(stripped, state)
-        _send_message(client, state, msg, routed, blast_override)
+        bg = _send_message(
+            client, state, msg, routed, blast_override,
+        )
         blast_override = None
+        if bg:
+            _bg_loop(client, state, bg)
+
+
+def _bg_loop(
+    client, state: SessionState, bg: TaskState,
+) -> None:
+    """Accept commands while background task runs."""
+    console.print("[dim]Task running. /status or /cancel[/dim]")
+    while is_active(bg):
+        try:
+            text = Prompt.ask("[dim cyan]bg>[/dim cyan]")
+        except (KeyboardInterrupt, EOFError):
+            from maggy.cli_bg_task import cancel_task
+            cancel_task(bg)
+            break
+        if text.strip() and dispatch(text.strip(), client, state):
+            continue
+    _finish_bg(state, bg)
+
+
+def _finish_bg(state: SessionState, bg: TaskState) -> None:
+    """Display result from completed background task."""
+    from rich.markdown import Markdown
+    result = collect_result(bg)
+    state.last_tool_events = result.get("tool_events", [])
+    content = result.get("content", "")
+    if content:
+        console.print(Markdown(content))
+    error = result.get("error", "")
+    if error:
+        console.print(f"[red]Error:[/red] {error}")
+    state.bg_task = None
 
 
 def _with_context(msg: str, state: SessionState) -> str:
@@ -93,20 +134,23 @@ def _with_context(msg: str, state: SessionState) -> str:
 def _send_message(
     client, state: SessionState, message: str,
     routed: bool, blast: int | None,
-) -> None:
-    """Send message and stream response."""
+) -> TaskState | None:
+    """Send message, stream or start background task."""
     if routed:
         chunks = client.chat_send_routed(
             state.session_id, message,
             blast=blast,
             allowed_models=state.allowed_models or None,
         )
-    else:
-        chunks = client.chat_send_stream(
-            state.session_id, message,
-        )
+        bg = start_task(chunks, console)
+        state.bg_task = bg
+        return bg
+    chunks = client.chat_send_stream(
+        state.session_id, message,
+    )
     result = stream_chunks(chunks, console)
     state.last_tool_events = result.get("tool_events", [])
+    return None
 
 
 def _parse_blast(text: str) -> int | None:

@@ -102,6 +102,30 @@ def cmd_sessions(client) -> None:
         console.print(f"  [bold]{sid}[/bold] {proj} ({n} msgs)")
 
 
+def cmd_stats(client) -> None:
+    """Budget + performance summary."""
+    b = _call(client.budget_summary)
+    t = Table(title="Stats")
+    t.add_column("Metric", style="bold")
+    t.add_column("Value")
+    spent = b.get("spent_today_usd", 0)
+    limit = b.get("daily_limit_usd", 0)
+    t.add_row("Spent", f"${spent:.2f} / ${limit:.2f}")
+    in_t = b.get("input_tokens", 0)
+    out_t = b.get("output_tokens", 0)
+    if in_t or out_t:
+        t.add_row("Tokens", f"{in_t:,} in / {out_t:,} out")
+    t.add_row("Status", b.get("status", "?"))
+    for p in _call(client.budget_by_provider, []):
+        prov = p.get("provider", "?")
+        t.add_row(f"  {prov}", f"${p.get('spent_usd', 0):.2f}")
+    for h in _call(client.models_heatmap, [])[:8]:
+        r, c = h.get("avg_reward", 0), "green"
+        c = "green" if r >= 0.8 else "yellow"
+        t.add_row(f"  {h.get('model', '?')} ({h.get('task_type', '')})", f"[{c}]{r:.2f}[/{c}] ({h.get('samples', 0)})")
+    console.print(t)
+
+
 def cmd_thinking(state) -> None:
     """Show last response's tool events."""
     events = state.last_tool_events
@@ -110,3 +134,34 @@ def cmd_thinking(state) -> None:
         return
     for event in events:
         console.print(f"  [dim cyan]> {event}[/dim cyan]")
+
+
+def cmd_status(state) -> None:
+    """Show background task progress."""
+    task = getattr(state, "bg_task", None)
+    if not task:
+        console.print("[dim]No background task.[/dim]")
+        return
+    from maggy.cli_bg_task import get_status
+    snap = get_status(task)
+    status = snap["status"]
+    model = snap["model"] or "?"
+    chunks = snap["chunks"]
+    tools = snap["tools"]
+    console.print(
+        f"[dim]{status} | {model} | {chunks} chunks"
+        f" | {tools} tool calls[/dim]",
+    )
+
+
+def cmd_cancel(state) -> None:
+    """Cancel running background task."""
+    task = getattr(state, "bg_task", None)
+    if not task:
+        console.print("[dim]No background task to cancel.[/dim]")
+        return
+    from maggy.cli_bg_task import cancel_task
+    if cancel_task(task):
+        console.print("[yellow]Cancelled.[/yellow]")
+    else:
+        console.print("[dim]Task not running.[/dim]")
