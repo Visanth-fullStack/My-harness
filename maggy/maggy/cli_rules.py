@@ -50,7 +50,8 @@ def _fmt_phases(phases: dict) -> str:
     for phase, info in phases.items():
         m = info.get("model", "?")
         r = info.get("reason", "")
-        lines.append(f"  {phase:<14} -> {m}  [dim]({r})[/dim]")
+        c = info.get("confidence", 1.0)
+        lines.append(f"  {phase:<14} -> {m}  [dim]({r}, {c:.0%})[/dim]")
     return "\n".join(lines)
 
 
@@ -64,12 +65,13 @@ def _fmt_perf(perf: dict) -> str:
         w = ", ".join(info.get("weaknesses", []))
         rate = info.get("success_rate", 0)
         n = info.get("tasks_completed", 0)
+        unit = "task" if n == 1 else "tasks"
         parts = [f"  {model:<10}"]
         if s:
             parts.append(f"[green]+{s}[/green]")
         if w:
             parts.append(f"[red]-{w}[/red]")
-        parts.append(f"[dim]{rate:.0%} ({n} tasks)[/dim]")
+        parts.append(f"[dim]{rate:.0%} ({n} {unit})[/dim]")
         lines.append("  ".join(parts))
     return "\n".join(lines)
 
@@ -82,6 +84,8 @@ def _fmt_conventions(conventions: list) -> str:
     for c in conventions:
         src = c.get("source", "")
         text = c.get("text", "")
+        if len(text) > 60:
+            text = text[:57] + "..."
         lines.append(f"  [dim]{src}:[/dim] {text}")
     return "\n".join(lines)
 
@@ -96,10 +100,16 @@ def _fmt_stakes(stakes: dict) -> str:
         fps = data.get("file_patterns", [])
         tts = data.get("task_types", [])
         kws = data.get("keywords", [])
-        items = fps + tts + kws
-        if items:
-            tag = f"[red]{level}[/red]" if level == "high" else level
-            lines.append(f"  {tag}: {', '.join(items)}")
+        if not (fps or tts or kws):
+            continue
+        tag = f"[red]{level}[/red]" if level == "high" else level
+        lines.append(f"  {tag}:")
+        if fps:
+            lines.append(f"    files: {', '.join(fps)}")
+        if tts:
+            lines.append(f"    tasks: {', '.join(tts)}")
+        if kws:
+            lines.append(f"    keys:  {', '.join(kws)}")
     return "\n".join(lines)
 
 

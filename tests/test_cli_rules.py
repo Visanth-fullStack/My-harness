@@ -120,10 +120,10 @@ def test_fmt_conventions_shows_text():
 
 def test_fmt_stakes_shows_levels():
     result = _fmt_stakes(_STAKES)
-    low = result.lower()
-    assert "high" in low
-    assert "auth" in result
-    assert "docs" in result
+    assert "high" in result.lower()
+    assert "files: auth" in result
+    assert "tasks: docs" in result
+    assert "keys:" in result
 
 
 def test_fmt_cascade_shows_policy():
@@ -138,3 +138,15 @@ def test_cmd_rules_mock_client():
     client.routing_rules.return_value = _FULL_DATA
     cmd_rules(client)
     client.routing_rules.assert_called_once()
+
+
+def test_cmd_rules_unconfigured():
+    client = MagicMock()
+    client.routing_rules.return_value = {"mode": "unconfigured"}
+    cmd_rules(client)  # should not raise
+
+
+def test_cmd_rules_client_error():
+    client = MagicMock()
+    client.routing_rules.side_effect = ConnectionError("down")
+    cmd_rules(client)  # should not raise
