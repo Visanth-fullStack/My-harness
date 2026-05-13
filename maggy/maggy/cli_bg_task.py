@@ -67,17 +67,17 @@ def _run_stream(
 def _process_chunk(
     state: TaskState, console: Console, chunk: dict,
 ) -> None:
-    """Update state from one SSE chunk."""
+    """Update state and stream live feedback."""
     ct = chunk.get("type", "")
     if ct == "routing":
         with state.lock:
             state.model = chunk.get("model", "")
+        console.print(f"  [dim]{state.model}[/dim]")
     elif ct == "tool_use":
-        label = _format_tool_use(
-            chunk.get("tool", ""), chunk.get("input", {}),
-        )
+        label = _format_tool_use(chunk.get("tool", ""), chunk.get("input", {}))
         with state.lock:
             state.tool_events.append(label)
+        console.print(f"  [dim cyan]> {label}[/dim cyan]")
     elif ct in ("text", "result"):
         with state.lock:
             state.content += chunk.get("content", "")
