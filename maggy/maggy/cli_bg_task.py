@@ -85,6 +85,8 @@ def _process_chunk(
     elif ct == "agent_status":
         with state.lock:
             state.phase = chunk.get("status", "")
+            if "falling back" in state.phase.lower():
+                state.error = ""
         console.print(f"  [dim]{state.phase}[/dim]")
     elif ct == "error":
         with state.lock:
