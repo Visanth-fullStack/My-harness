@@ -146,6 +146,9 @@ class MaggyClient:
     def routing_rules(self) -> dict:
         return self.get("/api/routing/rules")
 
+    def reviewer_heatmap(self) -> list:
+        return self.get("/api/reviewers/heatmap")
+
     def budget_by_provider(self) -> list:
         return self.get("/api/budget/by-provider")
 

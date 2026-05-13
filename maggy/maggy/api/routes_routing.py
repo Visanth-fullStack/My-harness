@@ -51,27 +51,70 @@ async def rules(
     request: Request,
     x_api_key: str | None = Header(None),
 ) -> dict:
-    """Return routing rules summary."""
+    """Return full routing rules summary."""
     check_auth(request, x_api_key)
     svc = request.app.state.routing
     if not svc:
         return {"mode": "unconfigured"}
-    r = svc.rules
-    overrides = {
-        k: {"model": v.model, "reason": v.reason}
-        for k, v in r.task_type_overrides.items()
+    return _serialize_rules(svc.rules, svc.cfg.routing.mode)
+
+
+def _serialize_rules(r, mode: str) -> dict:
+    """Serialize RoutingRules to API response."""
+    return {
+        "mode": mode,
+        "task_type_overrides": _ser_overrides(r.task_type_overrides),
+        "pipeline_phases": _ser_overrides(r.pipeline_phases),
+        "model_performance": _ser_perf(r.model_performance),
+        "conventions": [
+            {"text": c.text, "applies_to": c.applies_to, "source": c.source}
+            for c in r.conventions
+        ],
+        "stakes": _ser_stakes(r.stakes),
+        "cascade": {
+            "enabled": r.cascade.enabled,
+            "min_blast": r.cascade.min_blast,
+            "min_stakes": r.cascade.min_stakes,
+            "max_attempts": r.cascade.max_attempts,
+            "quality_threshold": r.cascade.quality_threshold,
+        },
     }
-    perf = {
+
+
+def _ser_overrides(overrides: dict) -> dict:
+    """Serialize ModelOverride dict."""
+    return {
+        k: {
+            "model": v.model, "reason": v.reason,
+            "confidence": v.confidence, "source": v.source,
+        }
+        for k, v in overrides.items()
+    }
+
+
+def _ser_perf(perf: dict) -> dict:
+    """Serialize PerformanceRecord dict."""
+    return {
         k: {
             "strengths": v.strengths,
+            "weaknesses": v.weaknesses,
             "success_rate": v.success_rate,
             "tasks_completed": v.tasks_completed,
         }
-        for k, v in r.model_performance.items()
+        for k, v in perf.items()
     }
+
+
+def _ser_stakes(stakes) -> dict:
+    """Serialize StakesPatterns."""
+    def _level(lv):
+        return {
+            "file_patterns": lv.file_patterns,
+            "task_types": lv.task_types,
+            "keywords": lv.keywords,
+        }
     return {
-        "mode": svc.cfg.routing.mode,
-        "task_type_overrides": overrides,
-        "model_performance": perf,
-        "conventions_count": len(r.conventions),
+        "high": _level(stakes.high),
+        "medium": _level(stakes.medium),
+        "low": _level(stakes.low),
     }

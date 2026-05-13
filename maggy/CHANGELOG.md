@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.6.11 — 2026-05-13
+
+### Added
+- **`/rules` command** — comprehensive routing rules summary showing task-type overrides, pipeline phases, model performance (strengths + weaknesses), team conventions, stakes classification patterns, and cascade policy in one panel
+- `cli_rules.py` — `cmd_rules` with `_fmt_overrides`, `_fmt_phases`, `_fmt_perf`, `_fmt_conventions`, `_fmt_stakes`, `_fmt_cascade` formatters
+- Full rules API — `/api/routing/rules` now returns pipeline phases, conventions text, stakes patterns, cascade policy, model weaknesses, and override confidence/source (was only returning overrides + strengths)
+- `reviewer_heatmap()` client method (was missing from `cli_client.py`)
+
 ## v0.6.10 — 2026-05-13
 
 ### Added
