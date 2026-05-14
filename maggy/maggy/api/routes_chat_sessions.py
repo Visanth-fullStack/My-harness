@@ -83,27 +83,25 @@ async def preload_sessions(
 
 
 def _resolve_all_sessions(chat) -> None:
-    """Resolve Claude session IDs and load history."""
+    """Load Claude history for display (not for --resume)."""
     from maggy.services.chat_context import resolve_claude_session_id
-    from maggy.services.chat_history import load_claude_history
-    from maggy.services.chat_models import ChatMessage
-    store = getattr(chat, "_store", None)
     for s in chat.list_sessions():
-        if not s.claude_session_id:
-            sid = resolve_claude_session_id(s.working_dir)
-            if sid:
-                s.claude_session_id = sid
-                if store:
-                    store.update_claude_id(s.id, sid)
-        if s.claude_session_id and not s.messages:
-            _load_history(s, store)
+        if s.messages:
+            continue
+        sid = resolve_claude_session_id(s.working_dir)
+        if sid:
+            _load_history(s, getattr(chat, "_store", None), sid)
 
 
-def _load_history(s, store) -> None:
-    """Load Claude conversation history into session."""
+def _load_history(s, store, history_sid: str) -> None:
+    """Load Claude conversation history for display only.
+
+    Does NOT set claude_session_id — history is read-only
+    context, not a session to --resume into.
+    """
     from maggy.services.chat_history import load_claude_history
     from maggy.services.chat_models import ChatMessage
-    msgs = load_claude_history(s.working_dir, s.claude_session_id)
+    msgs = load_claude_history(s.working_dir, history_sid)
     for m in msgs:
         cm = ChatMessage(
             role=m["role"], content=m["content"],
@@ -121,7 +119,7 @@ def _format_session(s) -> dict:
         "working_dir": s.working_dir, "repo_dir": s.repo_dir,
         "label": s.label, "status": s.status,
         "messages": len(s.messages),
-        "has_resume_id": bool(s.claude_session_id),
+        "has_resume_id": bool(s.messages),
     }
 
 

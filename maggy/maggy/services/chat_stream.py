@@ -42,8 +42,6 @@ def build_cmd(session: ChatSession, message: str) -> list[str]:
     ]
     if session.claude_session_id:
         cmd += ["--resume", session.claude_session_id]
-    else:
-        cmd += ["--continue"]
     return cmd
 
 
@@ -125,6 +123,14 @@ def _is_stale_error(chunk: dict) -> bool:
     )
 
 
+def _peek_type(text: str) -> str:
+    """Extract type field from JSON for logging."""
+    try:
+        return json.loads(text).get("type", "?")
+    except Exception:
+        return "parse-error"
+
+
 _CLAUDE_TIMEOUT = 180.0
 
 
@@ -149,7 +155,11 @@ async def _run_claude(
         got_output = False
         async for line in _read_with_timeout(proc):
             got_output = True
-            for chunk in parse_chunks(line, session):
+            chunks = parse_chunks(line, session)
+            if not chunks:
+                logger.debug("skip line type=%s", _peek_type(line))
+            for chunk in chunks:
+                logger.debug("yield chunk type=%s", chunk.get("type"))
                 yield chunk
         rc = await proc.wait()
         logger.info("claude pid=%d exit=%d", proc.pid or 0, rc)
