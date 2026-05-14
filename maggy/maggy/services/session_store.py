@@ -72,6 +72,7 @@ class SessionStore:
         self, sid: str, project_key: str,
         working_dir: str, claude_session_id: str,
         repo_dir: str = "", isolation: str = "none",
+        label: str = "",
     ) -> None:
         """Insert or update a session."""
         now = datetime.now(timezone.utc).isoformat()
@@ -79,12 +80,14 @@ class SessionStore:
             conn.execute(
                 "INSERT INTO sessions "
                 "(id, project_key, working_dir, "
-                "claude_session_id, repo_dir, isolation, created_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?) "
+                "claude_session_id, repo_dir, isolation, "
+                "label, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(id) DO UPDATE SET "
                 "claude_session_id = excluded.claude_session_id",
                 (sid, project_key, working_dir,
-                 claude_session_id, repo_dir, isolation, now),
+                 claude_session_id, repo_dir, isolation,
+                 label, now),
             )
             conn.commit()
 

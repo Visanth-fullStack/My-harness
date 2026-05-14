@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import subprocess
 import uuid
 from pathlib import Path
 from typing import AsyncGenerator
@@ -28,6 +29,21 @@ logger = logging.getLogger(__name__)
 __all__ = ["ChatManager", "ChatMessage", "ChatSession", "enqueue_msg"]
 
 
+def _git_branch(path: str) -> str:
+    """Get current git branch for a directory."""
+    try:
+        out = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=path, capture_output=True, text=True,
+            timeout=5,
+        )
+        if out.returncode == 0:
+            return out.stdout.strip()
+    except Exception:
+        pass
+    return ""
+
+
 class ChatManager:
     """Manages interactive Claude Code sessions."""
 
@@ -50,10 +66,12 @@ class ChatManager:
             wd = self._resolve_project(project_key)
             key = project_key
         sid = uuid.uuid4().hex[:10]
+        branch = _git_branch(wd)
         session = ChatSession(
             id=sid, claude_session_id="",
             project_key=key, working_dir=wd,
             repo_dir=wd, isolation="none",
+            label=branch,
         )
         self._sessions[session.id] = session
         self._locks[session.id] = asyncio.Lock()
@@ -61,6 +79,7 @@ class ChatManager:
             self._store.save_session(
                 session.id, key, wd, "",
                 repo_dir=wd, isolation="none",
+                label=branch,
             )
         return session
 

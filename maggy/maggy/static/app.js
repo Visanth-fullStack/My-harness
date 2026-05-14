@@ -501,9 +501,11 @@ function renderChatSidebar(sessions) {
       const s = slist[i];
       const active = s.id === CHAT_SESSION_ID ? 'bg-gray-800 border-orange-500' : 'border-transparent hover:bg-gray-900';
       const displayName = s.label || `Session ${i + 1}`;
+      const isBranch = s.label && s.label !== `Session ${i + 1}`;
+      const icon = isBranch ? 'fa-code-branch' : 'fa-circle';
       html += `<div class="card px-2 py-1 cursor-pointer border ml-2 ${active}" onclick="openChatSession('${jsStr(s.id)}')">
         <div class="flex items-center gap-1">
-          <i class="fas fa-circle text-green-400 text-[5px]"></i>
+          <i class="fas ${icon} ${isBranch ? 'text-orange-400' : 'text-green-400'} text-[7px]"></i>
           <span id="slabel-${esc(s.id)}" class="text-[10px] text-gray-300 flex-1 truncate">${esc(displayName)}</span>
           <button onclick="event.stopPropagation(); renameSession('${jsStr(s.id)}')" class="text-[9px] text-gray-600 hover:text-orange-400" title="Rename"><i class="fas fa-pen"></i></button>
           <button onclick="event.stopPropagation(); deleteSession('${jsStr(s.id)}')" class="text-[9px] text-gray-600 hover:text-red-400" title="Delete"><i class="fas fa-trash"></i></button>
