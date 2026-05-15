@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [6.14.0] - 2026-05-15
+
+### Added
+
+#### Mnemos Full Implementation — Task-Scoped Memory Lifecycle
+- **Tier 0 Core**: `constants.py`, `models.py` (12 node types, Pydantic models), `db.py` + `db_queries.py` (SQLite CRUD + bulk ops), `fatigue.py` (token util with 4-dim upgrade path), `checkpoint.py` (write/read/cooldown), `status.py`, `cli.py` + `cli_hooks.py` + `cli_nodes.py`
+- **Tier 1 Lifecycle**: `activation.py` (recency/frequency/centrality composite weights), `scope.py` (tag inference + Jaccard overlap), `signals.py` (JSONL tool call logger), `fatigue_dimensions.py` (4-dim: token 0.40, scatter 0.25, reread 0.20, error 0.15), `extraction.py` (tool-to-node pipeline), `consolidation.py` (micro-consolidation at COMPRESS range), `skills.py` (fingerprint + promotion algebra)
+- **Full Tier**: `rem.py` + `rem_slow_wave.py` + `rem_skills.py` + `rem_pruning.py` + `rem_wake.py` (4-phase REM process), `delegation.py` (sub-agent inheritance rules), `merge.py` (5 conflict types, absolute ConstraintNode protection), `orchestrator.py` (5 signal types), `handoff.py` (fleet diagnostics)
+- **Backward compat**: `_compat.py` preserves v0 `FatigueTracker` and `SignalLog` APIs
+- **230 new tests** across 27 test files, 83% coverage
+
+---
+
 ## [6.13.0] - 2026-05-15
 
 ### Added
