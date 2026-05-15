@@ -20,6 +20,28 @@ class TestSchema:
         assert "node_links" in tables
         assert "checkpoints" in tables
 
+    def test_wal_mode_enabled(self, db: MnemosDB):
+        row = db.conn.execute("PRAGMA journal_mode").fetchone()
+        assert row[0] == "wal"
+
+
+class TestContextManager:
+    def test_closes_on_exit(self, tmp_mnemos_dir: Path):
+        with MnemosDB(tmp_mnemos_dir) as db:
+            db.insert_node(MnemoNode(
+                type="FactNode", task_id="t1", content="f",
+            ))
+        # After exit, connection should be closed
+        with pytest.raises(Exception):
+            db.conn.execute("SELECT 1")
+
+    def test_usable_inside_with(self, tmp_mnemos_dir: Path):
+        with MnemosDB(tmp_mnemos_dir) as db:
+            db.insert_node(MnemoNode(
+                type="GoalNode", task_id="t1", content="g",
+            ))
+            assert db.count_nodes() == 1
+
 
 class TestNodeCRUD:
     def test_insert_and_get(self, db: MnemosDB):

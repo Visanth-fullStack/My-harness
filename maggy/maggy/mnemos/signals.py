@@ -47,6 +47,25 @@ def read_signals(mnemos_dir: Path) -> list[ToolSignal]:
     return signals
 
 
+def read_recent_signals(
+    mnemos_dir: Path, n: int = 30,
+) -> list[ToolSignal]:
+    """Read the last *n* signals without loading full file."""
+    path = mnemos_dir / SIGNALS_FILENAME
+    if n <= 0 or not path.exists():
+        return []
+    from collections import deque
+
+    signals: list[ToolSignal] = []
+    with path.open(encoding="utf-8") as fh:
+        for line in deque(fh, maxlen=n):
+            try:
+                signals.append(_dict_to_signal(json.loads(line)))
+            except (json.JSONDecodeError, TypeError):
+                continue
+    return signals
+
+
 def read_signals_since(
     mnemos_dir: Path, since: datetime,
 ) -> list[ToolSignal]:

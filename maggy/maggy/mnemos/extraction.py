@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from maggy.mnemos.db import MnemosDB
 from maggy.mnemos.models import MnemoNode
 from maggy.mnemos.scope import infer_scope_tags
@@ -111,6 +113,6 @@ def _is_same_sequence(a: ToolSignal, b: ToolSignal) -> bool:
     """Heuristic: same sequence if within same directory."""
     if not a.file_path or not b.file_path:
         return True  # non-file tools group together
-    da = str(__import__("pathlib").Path(a.file_path).parent)
-    db = str(__import__("pathlib").Path(b.file_path).parent)
+    da = str(Path(a.file_path).parent)
+    db = str(Path(b.file_path).parent)
     return da == db

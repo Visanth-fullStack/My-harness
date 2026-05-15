@@ -7,6 +7,7 @@ from maggy.mnemos.signals import (
     append_signal,
     count_signals_by_tool,
     extract_file_paths,
+    read_recent_signals,
     read_signals,
     read_signals_since,
     signal_from_hook_data,
@@ -36,6 +37,39 @@ class TestAppendAndRead:
         for i in range(5):
             append_signal(tmp_mnemos_dir, _sig(path=f"f{i}.py"))
         assert len(read_signals(tmp_mnemos_dir)) == 5
+
+
+class TestReadRecent:
+    def test_returns_last_n(self, tmp_mnemos_dir):
+        for i in range(10):
+            append_signal(tmp_mnemos_dir, _sig(path=f"f{i}.py"))
+        recent = read_recent_signals(tmp_mnemos_dir, n=3)
+        assert len(recent) == 3
+        assert recent[0].file_path == "f7.py"
+        assert recent[2].file_path == "f9.py"
+
+    def test_empty_file(self, tmp_mnemos_dir):
+        assert read_recent_signals(tmp_mnemos_dir, n=5) == []
+
+    def test_n_larger_than_file(self, tmp_mnemos_dir):
+        append_signal(tmp_mnemos_dir, _sig())
+        assert len(read_recent_signals(tmp_mnemos_dir, n=100)) == 1
+
+    def test_zero_n(self, tmp_mnemos_dir):
+        append_signal(tmp_mnemos_dir, _sig())
+        assert read_recent_signals(tmp_mnemos_dir, n=0) == []
+
+    def test_skips_malformed_lines(self, tmp_mnemos_dir):
+        from maggy.mnemos.constants import SIGNALS_FILENAME
+        path = tmp_mnemos_dir / SIGNALS_FILENAME
+        append_signal(tmp_mnemos_dir, _sig(path="good.py"))
+        with path.open("a") as f:
+            f.write("NOT VALID JSON\n")
+        append_signal(tmp_mnemos_dir, _sig(path="also_good.py"))
+        recent = read_recent_signals(tmp_mnemos_dir, n=3)
+        assert len(recent) == 2
+        assert recent[0].file_path == "good.py"
+        assert recent[1].file_path == "also_good.py"
 
 
 class TestReadSince:

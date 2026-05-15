@@ -7,7 +7,16 @@ import json
 import sys
 from pathlib import Path
 
-from maggy.mnemos.constants import JUST_COMPACTED_MARKER, MNEMOS_DIR
+from typing import TYPE_CHECKING
+
+from maggy.mnemos.constants import (
+    COMPACT_UTILIZATION,
+    JUST_COMPACTED_MARKER,
+    MNEMOS_DIR,
+)
+
+if TYPE_CHECKING:
+    from maggy.mnemos.db import MnemosDB
 
 
 def cmd_hook(args: argparse.Namespace) -> None:
@@ -22,27 +31,25 @@ def cmd_hook(args: argparse.Namespace) -> None:
     if not mnemos_dir.is_dir():
         return
 
-    db = MnemosDB(mnemos_dir)
-    event = args.event
-
     handlers = {
         "pre_tool_use": _hook_pre_tool_use,
         "session_start": _hook_session_start,
         "pre_compact": _hook_pre_compact,
         "post_compact": _hook_post_compact,
     }
-    handler = handlers.get(event)
+    handler = handlers.get(args.event)
     if handler:
-        handler(data, mnemos_dir, db)
+        with MnemosDB(mnemos_dir) as db:
+            handler(data, mnemos_dir, db)
 
 
 def _hook_pre_tool_use(
-    data: dict, mnemos_dir: Path, db: object,
+    data: dict, mnemos_dir: Path, db: MnemosDB,
 ) -> None:
     from maggy.mnemos.consolidation import run_micro_consolidation
     from maggy.mnemos.fatigue import compute_fatigue, save_fatigue
     from maggy.mnemos.signals import (
-        read_signals,
+        read_recent_signals,
         signal_from_hook_data,
         append_signal,
     )
@@ -55,7 +62,7 @@ def _hook_pre_tool_use(
     if not tp:
         return
 
-    signals = read_signals(mnemos_dir)
+    signals = read_recent_signals(mnemos_dir, n=30)
     fs = compute_fatigue(Path(tp), signals)
     save_fatigue(mnemos_dir, fs)
 
@@ -78,7 +85,7 @@ def _hook_pre_tool_use(
 
 
 def _hook_session_start(
-    data: dict, mnemos_dir: Path, db: object,
+    data: dict, mnemos_dir: Path, db: MnemosDB,
 ) -> None:
     from maggy.mnemos.checkpoint import format_for_context, load_latest
 
@@ -89,7 +96,7 @@ def _hook_session_start(
 
 
 def _hook_pre_compact(
-    data: dict, mnemos_dir: Path, db: object,
+    data: dict, mnemos_dir: Path, db: MnemosDB,
 ) -> None:
     from maggy.mnemos.checkpoint import (
         format_for_context,
@@ -98,12 +105,12 @@ def _hook_pre_compact(
     from maggy.mnemos.rem import run_rem_cycle, should_trigger_rem
 
     # Trigger REM before compact
-    if should_trigger_rem(0.83):
+    if should_trigger_rem(COMPACT_UTILIZATION):
         run_rem_cycle(db, mnemos_dir)
 
     cp = write_checkpoint(
         mnemos_dir, db, task_id="auto",
-        fatigue=0.83, emergency=True, force=True,
+        fatigue=COMPACT_UTILIZATION, emergency=True, force=True,
     )
     marker = mnemos_dir / JUST_COMPACTED_MARKER
     marker.write_text(cp.id)
@@ -116,7 +123,7 @@ def _hook_pre_compact(
 
 
 def _hook_post_compact(
-    data: dict, mnemos_dir: Path, db: object,
+    data: dict, mnemos_dir: Path, db: MnemosDB,
 ) -> None:
     from maggy.mnemos.checkpoint import format_for_context, load_latest
 

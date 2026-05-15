@@ -74,10 +74,17 @@ class MnemosDB:
         self._path = mnemos_dir / DB_FILENAME
         self._conn = sqlite3.connect(str(self._path))
         self._conn.row_factory = sqlite3.Row
+        self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.executescript(_SCHEMA)
 
     def close(self) -> None:
         self._conn.close()
+
+    def __enter__(self) -> "MnemosDB":
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
 
     @property
     def conn(self) -> sqlite3.Connection:
