@@ -6,6 +6,56 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [6.17.0] - 2026-05-16
+
+### Added
+
+#### Maggy Dashboard UI Overhaul
+- **Sidebar navigation** — modern vertical sidebar replacing horizontal tab bar, with grouped sections (Work, Intel, System)
+- **Cmd+K / Ctrl+K command palette** — fuzzy project search with keyboard shortcut, instant jump between projects
+- **Memory panel** — fatigue gauge with color-coded states (FLOW→COMPRESS→PRE_SLEEP→REM→EMERGENCY), engram stats, recent memories list
+- **Progress panel** — real-time execution status per task, active/running/completed indicators with shimmer animations, recent activity signals log
+- **Heartbeat indicator** — live status dot with pulse-glow animation, auto-refreshes every 30s
+- **Model badge in header** — shows active model, blast score, task type during execution
+- **Sidebar fatigue indicator** — compact fatigue percentage with color-coded state
+- **CSS variable design system** — consistent dark theme with orange accent, scrollbar styling, badge components
+
+#### Multi-Source Task Aggregator
+- **`GET /api/aggregator/tasks`** — unified task list from `_project_specs/todos/` + GitHub Issues + Asana, deduplicated and priority-sorted
+- **`POST /api/aggregator/execute-all`** — queue all pending tasks for TDD execution
+- **`read_project_specs()`** — parses `active.md` and `backlog.md` markdown checklists into structured task objects
+
+#### Progress Analysis Engine
+- **`ProgressEngine`** — cross-model execution tracker with step history, blocker detection, model usage stats
+- **Auto-adjust routing** — detects fatigue thresholds and consecutive failures, suggests model escalation
+- **Next-action suggestions** — analyzes blocker state, model failures, and unvalidated completions to recommend next steps
+- **`ProgressSnapshot`** — structured summary of active/completed/blocked tasks, elapsed time, model distribution
+
+#### Background Heartbeat Jobs
+- **`poll_inbox`** — auto-refreshes inbox from GitHub/Asana every 5 minutes (configurable interval)
+- **`scan_competitors`** — periodic competitor news scanning for active project
+- **`track_research`** — research trend tracking for active project
+- All jobs registered in `HeartbeatScheduler` with per-job error isolation and status tracking
+
+#### Generic Test Suite Generator
+- **`test_generator.py`** — auto-detects Python (pyproject.toml/setup.py) and TypeScript (package.json) projects
+- **Python scaffold** — generates `conftest.py`, `__init__.py`, per-module test stubs, `.coveragerc` with configurable thresholds
+- **TypeScript scaffold** — generates `vitest.config.ts` with coverage thresholds, sample test file
+- **`write_scaffold()`** — one-call detection + generation + file writing with summary output
+
+### Changed
+- **`main.py`** — registered `aggregator_router` for task aggregation endpoints
+- **`progress_engine.py`** — new module with task state tracking and routing auto-adjustment
+- **`routes_aggregator.py`** — new API routes for multi-source task listing and batch execution
+
+### Stats
+- 8 files changed across UI (2), backend (4), heartbeat (1), test gen (1)
+- New panels: Memory, Progress (2) in redesigned sidebar
+- New API endpoints: 3 (aggregator tasks, execute-all, progress status)
+- All existing routing tests pass (38/38)
+
+---
+
 ## [6.16.0] - 2026-05-16
 
 ### Added
