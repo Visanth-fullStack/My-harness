@@ -6,6 +6,40 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [6.15.0] - 2026-05-16
+
+### Added
+
+#### Mnemos Checkpoint Compatibility & Compact Recovery
+- **Backward-compatible checkpoint serialization** — `checkpoint.py` extended with compat-layer serialization so older checkpoint formats deserialize cleanly into current `CheckpointNode` schema
+- **`mnemos-compact-recovery.sh`** — New recovery script for post-compaction checkpoint restoration; detects compaction markers and re-injects checkpoint context automatically
+- **`test_mnemos_checkpoint_compat.py`** — 162-line test suite for backward-compatible checkpoint round-trips across schema versions
+- **`test_executor_bridge.py`** — 101-line test suite for chat executor bridge routing decisions and blast-score thresholds
+
+#### Fatigue-Aware Model Routing
+- **Mnemos fatigue wired into model routing** — `model_router.py` now queries fatigue state and adjusts routing: high fatigue biases toward simpler models to reduce context pressure
+- **`test_fatigue_routing.py`** — 107-line test suite for fatigue-aware routing decisions
+
+### Fixed
+
+#### Defensive Hook Scripts
+- **All hook scripts hardened** — Removed `set -euo pipefail` from all mnemos hooks; added `2>/dev/null || true` guards on `cat`/`jq` stdin reads so hooks never block Claude Code sessions
+- **Defensive pattern established**: (1) no strict mode, (2) `INPUT=$(cat 2>/dev/null || true)`, (3) jq with `// empty` fallbacks, (4) always `exit 0` on failure
+- **Kimi parser fix** — `history/parsers/kimi.py` improved session detection for cross-tool context injection
+- **Executor bridge improvements** — `chat_executor_bridge.py` refined routing logic for actionable vs informational messages
+
+### Changed
+- **`models.py`** — Extended Mnemos model definitions with additional fields for checkpoint compat
+- **`SKILL.md`** — Updated mnemos skill documentation with compact recovery and compat details
+- **`templates/CLAUDE.md`** — Added mnemos compact recovery references
+- **`templates/mnemos-post-compact-inject.sh`** — Improved injection logic for post-compaction context restoration
+
+### Stats
+- 79 files changed, +5,593 / -144 lines across the full PR
+- New test files: 28 test files, **243+ tests passing**, 83% coverage
+
+---
+
 ## [6.14.1] - 2026-05-15
 
 ### Fixed
