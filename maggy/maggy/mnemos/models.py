@@ -80,15 +80,31 @@ class FatigueState(BaseModel):
 
 
 class CheckpointData(BaseModel):
-    """Serializable checkpoint snapshot."""
+    """Serializable checkpoint snapshot.
+
+    Supports two formats:
+    - Standard: written by Python module (fatigue, summary, graph_json)
+    - Rich: written by bash hook templates (goal, constraints, results)
+    """
 
     id: str = Field(default_factory=_uuid)
     task_id: str
     created_at: datetime = Field(default_factory=_now)
-    fatigue: float
-    summary: str
-    graph_json: dict[str, Any]
+    fatigue: float = 0.0
+    summary: str = ""
+    graph_json: dict[str, Any] = Field(default_factory=dict)
     is_emergency: bool = False
+    # Rich template fields (optional)
+    goal: str = ""
+    active_constraints: list[str] = Field(default_factory=list)
+    active_results: list[str] = Field(default_factory=list)
+    current_subgoal: str = ""
+    working_memory: str = ""
+    task_narrative: str = ""
+    recent_files: list[dict[str, Any]] = Field(default_factory=list)
+    git_state: dict[str, Any] = Field(default_factory=dict)
+    icpg_state: dict[str, Any] | None = None
+    node_summary: dict[str, Any] = Field(default_factory=dict)
 
 
 class NodeLink(BaseModel):

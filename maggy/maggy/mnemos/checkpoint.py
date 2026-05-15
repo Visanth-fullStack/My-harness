@@ -82,23 +82,67 @@ def _write_latest(mnemos_dir: Path, cp: CheckpointData) -> None:
 
 
 def load_latest(mnemos_dir: Path) -> CheckpointData | None:
-    """Load checkpoint-latest.json."""
+    """Load checkpoint-latest.json (standard or rich format)."""
     path = mnemos_dir / CHECKPOINT_LATEST
     if not path.exists():
         return None
     data = json.loads(path.read_text())
+    # Rich format uses fatigue_at_checkpoint instead of fatigue
+    if "fatigue_at_checkpoint" in data and "fatigue" not in data:
+        data["fatigue"] = data.pop("fatigue_at_checkpoint")
     return CheckpointData(**data)
 
 
 def format_for_context(cp: CheckpointData) -> str:
     """Format checkpoint for injection into Claude context."""
-    lines = [
-        "--- MNEMOS CHECKPOINT ---",
-        f"Task: {cp.task_id} | Fatigue: {cp.fatigue:.2f}",
-        f"Emergency: {cp.is_emergency}",
-        f"Summary: {cp.summary}",
-        "",
-    ]
+    lines = ["--- MNEMOS CHECKPOINT ---"]
+    if cp.goal:
+        return _format_rich(cp, lines)
+    return _format_standard(cp, lines)
+
+
+def _format_rich(cp: CheckpointData, lines: list[str]) -> str:
+    """Format a rich (template-written) checkpoint."""
+    lines.append(f"Goal: {cp.goal}")
+    lines.append(f"Task: {cp.task_id} | Fatigue: {cp.fatigue:.2f}")
+    lines.append("")
+    if cp.active_constraints:
+        lines.append("Constraints (DO NOT VIOLATE):")
+        for c in cp.active_constraints:
+            lines.append(f"  - {c}")
+        lines.append("")
+    if cp.active_results:
+        lines.append("Completed Results:")
+        for r in cp.active_results:
+            lines.append(f"  - {r}")
+        lines.append("")
+    if cp.current_subgoal:
+        lines.append(f"Current Sub-Goal: {cp.current_subgoal}")
+    if cp.task_narrative:
+        lines.append(f"Activity: {cp.task_narrative}")
+    git = cp.git_state
+    if git.get("branch"):
+        lines.append(f"Branch: {git['branch']}")
+        uncommitted = git.get("uncommitted", [])
+        if uncommitted:
+            lines.append(
+                "Uncommitted: " + ", ".join(uncommitted[:5])
+            )
+    lines.append("--- END CHECKPOINT ---")
+    return "\n".join(lines)
+
+
+def _format_standard(
+    cp: CheckpointData, lines: list[str],
+) -> str:
+    """Format a standard (Python-written) checkpoint."""
+    lines.append(
+        f"Task: {cp.task_id} | Fatigue: {cp.fatigue:.2f}"
+    )
+    lines.append(f"Emergency: {cp.is_emergency}")
+    if cp.summary:
+        lines.append(f"Summary: {cp.summary}")
+    lines.append("")
     nodes = cp.graph_json.get("nodes", [])
     if nodes:
         lines.append("Active nodes:")
