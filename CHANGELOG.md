@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [6.13.0] - 2026-05-15
+
+### Added
+
+#### Self-Healing System
+- **`services/frustration.py`** — Frustration detection service with target taxonomy (app_bug / output_quality / task_difficulty), 5 weighted scoring dimensions (repetition 0.30, escalation 0.25, rapid re-sends 0.20, explicit language 0.15, abandonment 0.10), convergence bonus, and 4 threshold actions (log / adjust / notify / ticket)
+- **`services/health_watchdog.py`** — Server health watchdog monitoring processes (PID), HTTP endpoints, and system memory (psutil with sysctl fallback); reports aggregate HEALTHY / DEGRADED / UNHEALTHY status
+- **RFC Section 15** — "Self-Healing: Autonomous Fault Detection and Recovery" documenting three-signal-collector architecture, frustration target classification, triage engine, and integration points
+
+#### iCPG Inspection
+- **`api/routes_icpg.py`** — New API to browse iCPG reason graphs across all configured codebases: `/api/icpg/overview`, `/{project}/reasons`, `/{project}/drift`, `/{project}/graph`
+- Dashboard iCPG tab with aggregate stats, drill-down by project, drift alerts, ReasonNode grouping by status, and SVG force-layout graph visualization
+
+#### Chat UX Overhaul
+- Multi-line textarea input with auto-expand (Shift+Enter for newlines, Enter to send)
+- Progressive markdown rendering during streaming (debounced at 300ms instead of only after stream ends)
+- Sidebar star/collapse — star projects to pin them top, collapse inactive ones; state persisted in localStorage
+- Tab button transitions with hover states and active glow
+- User messages preserve whitespace/newlines
+
+#### Orchestrator
+- **`orchestrator/isolation.py`**, **`merge.py`**, **`worktree.py`** — Worktree-based isolated agent execution with safe merge-back strategies
+
+#### Phase Specs
+- 14 phase documents for Maggy v2–v5 roadmap (PI adapter through event spine)
+
+### Fixed
+- **Codex executor timeout** — bumped `_POLL_TIMEOUT` from 300s to 600s; Codex planning tasks were timing out at ~298s and falling back to Claude unnecessarily
+
+### Tests
+- 13 tests for frustration detection (target classification, score dimensions, thresholds, edge cases)
+- 11 tests for health watchdog (PID checks, endpoint checks, memory, aggregate status)
+- 14 test files for budget, event spine, worktree isolation/merge, model routing, process intelligence
+
+---
+
 ## [6.12.0] - 2026-05-13
 
 ### Added
