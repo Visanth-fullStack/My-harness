@@ -40,6 +40,7 @@ Tiers:
 - GEMINI_FLASH: multimodal tasks, image screenshots analysis, video content processing, brand asset analysis, audio transcription review
 - GEMINI_CLI: full coding agent with tools (grep, file read/write, MCP, web search), implements features end-to-end, debugging with execution, similar capability to Claude Code but via Gemini
 - KIMI: single-file code review, medium reasoning, commit messages, summarising diffs or docs, research questions, changelog generation
+- GROK: competitor intelligence, CKG building, deep reasoning, market analysis, truthful insights via xAI
 - GEMINI_PRO_SEARCH: deep research with Google Search grounding, competitor intelligence, market research, 2M context document analysis
 - CODEX: bulk boilerplate generation, mechanical changes across many files, large-scale test generation
 - CLAUDE: architecture, security-critical code, complex debugging, system design, multi-service refactors, customer-facing quality-critical code
@@ -50,7 +51,7 @@ Task: ${PROMPT}"
 _classify_parse() {
   local raw="$1"
   [ -z "$raw" ] && return 1
-  TIER=$(echo "$raw" | grep -oE '^(QWEN|DEEPSEEK_FLASH|GEMINI_FLASH_LITE|DEEPSEEK_PRO|GEMINI_FLASH|GEMINI_CLI|KIMI|GEMINI_PRO_SEARCH|CODEX|CLAUDE)' || echo "")
+  TIER=$(echo "$raw" | grep -oE '^(QWEN|DEEPSEEK_FLASH|GEMINI_FLASH_LITE|DEEPSEEK_PRO|GEMINI_FLASH|GEMINI_CLI|KIMI|GROK|GEMINI_PRO_SEARCH|CODEX|CLAUDE)' || echo "")
   [ -z "$TIER" ] && return 1
   REASON=$(echo "$raw" | sed 's/^[A-Z_]*:\s*//')
   return 0
@@ -139,28 +140,31 @@ case "$TIER" in
     CTX="ROUTING DECISION: DEEPSEEK_FLASH (cheap API, \$0.14/M in). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/deepseek --flash \"<prompt>\" and return the result. Do NOT process this yourself — delegate to deepseek.${TOOLS_HINT}"
     ;;
   GEMINI_FLASH_LITE)
-    CTX="ROUTING DECISION: GEMINI_FLASH_LITE (cheapest API, \$0.10/M in). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/gemini --flash-lite \"<prompt>\" and return the result. Do NOT process this yourself — delegate to gemini.${TOOLS_HINT}"
+    CTX="ROUTING DECISION: GEMINI_FLASH_LITE (cheapest API, \$0.10/M in). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/gemini-api --flash-lite \"<prompt>\" and return the result. Do NOT process this yourself — delegate to gemini.${TOOLS_HINT}"
     ;;
   DEEPSEEK_PRO)
     CTX="ROUTING DECISION: DEEPSEEK_PRO (workhorse, \$0.44/M in). Reason: ${REASON}. EXECUTE DIRECTLY — this complexity tier does not need planning. Run: /Users/alinaqishaheen/bin/deepseek --pro \"<prompt>\" and return the result. Do NOT process this yourself — delegate to deepseek.${TOOLS_HINT}"
     ;;
   GEMINI_FLASH)
-    CTX="ROUTING DECISION: GEMINI_FLASH (multimodal, \$0.15/M in). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/gemini --flash \"<prompt>\" and return the result. Do NOT process this yourself — delegate to gemini.${TOOLS_HINT}"
+    CTX="ROUTING DECISION: GEMINI_FLASH (multimodal, \$0.15/M in). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/gemini-api --flash \"<prompt>\" and return the result. Do NOT process this yourself — delegate to gemini.${TOOLS_HINT}"
     ;;
   GEMINI_CLI)
     CTX="ROUTING DECISION: GEMINI_CLI (coding agent, \$0.25-1.25/M in). Reason: ${REASON}. EXECUTE DIRECTLY — Gemini CLI has tools for implementation. Run: /Users/alinaqishaheen/bin/gemini-cli --pro \"<prompt>\" and return the result. Do NOT process this yourself — delegate to gemini-cli.${TOOLS_HINT}"
+    ;;
+  GROK)
+    CTX="ROUTING DECISION: GROK (xAI, competitive reasoning). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/grok \"<prompt>\" and return the result. Do NOT process this yourself — delegate to grok.${TOOLS_HINT}"
     ;;
   KIMI)
     CTX="ROUTING DECISION: KIMI (local). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/kimi --quiet -p \"<prompt>\" and return the result. Do NOT process this yourself — delegate to kimi.${TOOLS_HINT}"
     ;;
   GEMINI_PRO_SEARCH)
-    CTX="ROUTING DECISION: GEMINI_PRO_SEARCH (deep research + Google grounding, \$1.25/M in + search). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/gemini --pro-search \"<prompt>\" and return the result. Do NOT process this yourself — delegate to gemini.${TOOLS_HINT}"
+    CTX="ROUTING DECISION: GEMINI_PRO_SEARCH (deep research + Google grounding, \$1.25/M in + search). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/gemini-api --pro-search \"<prompt>\" and return the result. Do NOT process this yourself — delegate to gemini.${TOOLS_HINT}"
     ;;
   CODEX)
     CTX="ROUTING DECISION: CODEX. Reason: ${REASON}. Suggest the user run codex for this task, or use codex exec. Do NOT do bulk generation yourself.${TOOLS_HINT}"
     ;;
   CLAUDE)
-    CTX="ROUTING DECISION: CLAUDE (architecture/security-critical). Reason: ${REASON}. PLAN FIRST — explore codebase, design approach, get approval before implementing. Use iCPG trace_path and get_architecture for context.${TOOLS_HINT}"
+    CTX="ROUTING DECISION: CLAUDE (architecture/security-critical). Reason: ${REASON}. PLAN FIRST — write plan to ~/.claude/plans/<name>.md, then run ~/bin/validate-plan <plan-file>. If 2+ reviewers approve, execute immediately. Do NOT enter Claude Code plan mode — it requires manual approval. Write the plan as a file and validate autonomously.${TOOLS_HINT}"
     ;;
 esac
 

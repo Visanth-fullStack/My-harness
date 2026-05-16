@@ -67,6 +67,8 @@ DEFAULT_MODELS: list[ModelEntry] = [
                os.path.join(DELEGATION_BIN, "deepseek"), 128_000),
     ModelEntry("kimi", "moonshot", "kimi-k2.6", "cheap", 0.0006, 10.0,
                os.path.join(DELEGATION_BIN, "kimi"), 128_000),
+    ModelEntry("grok", "xai", "grok-4.3", "premium", 0.005, 30.0,
+               os.path.join(DELEGATION_BIN, "grok"), 128_000),
     ModelEntry("gemini-pro-search", "google", "gemini-3.1-pro", "premium", 0.001, 30.0,
                os.path.join(DELEGATION_BIN, "gemini-api"), 2_000_000),
     ModelEntry("gpt", "openai", "gpt-4o", "medium", 0.01, 20.0, "codex", 128_000),
