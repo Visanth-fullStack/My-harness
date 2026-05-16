@@ -11,11 +11,12 @@ mWP (7/11 stars): Not a webhook wrapper. An autonomous narrative engine that:
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
 import subprocess
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import httpx
@@ -25,11 +26,197 @@ try:
     from maggy.plugins.manager import HookBus, PluginManifest
 except ImportError:
     HookBus = None  # type: ignore
-    PluginManifest = dict  # type: ignore  # Standalone fallback
+    PluginManifest = dict  # type: ignore
+
+# Content strategy engine inlined for standalone compatibility
+# (Python 3.14 @dataclass breaks with importlib dynamic loading)
+
+BEST_TIMES = {
+    "linkedin": {
+        "deep_dive": ["Tue 09:00", "Wed 09:00", "Thu 09:00"],
+        "announcement": ["Tue 08:30", "Wed 08:30", "Thu 08:30"],
+        "insight": ["Tue 10:00", "Wed 10:00", "Thu 10:00"],
+    },
+    "x": {
+        "deep_dive": ["Tue 10:00", "Wed 10:00", "Thu 10:00"],
+        "announcement": ["Tue 09:00", "Wed 09:00", "Thu 14:00"],
+        "insight": ["Tue 11:00", "Wed 11:00", "Thu 11:00", "Fri 11:00"],
+        "thread": ["Wed 10:30", "Thu 10:30"],
+    },
+}
+
+SERIES_TEMPLATE = [
+    ("teaser", 0, "curiosity, one-line hook"),
+    ("deep_dive", 1, "technical, teaches something"),
+    ("lessons", 3, "reflective, what surprised you"),
+]
+
+
+class ScheduledPost:
+    def __init__(self, channel="", text="", scheduled_at="", format="single",
+                 thread_index=0, thread_total=1, media=None):
+        self.channel = channel
+        self.text = text
+        self.scheduled_at = scheduled_at
+        self.format = format
+        self.thread_index = thread_index
+        self.thread_total = thread_total
+        self.media = media or []
 
 logger = logging.getLogger(__name__)
 
 BUFFER_API = "https://api.bufferapp.com/1"
+
+
+class ContentStrategy:
+    """Decides what, where, when, and how to post — full editorial logic."""
+
+    def __init__(self, config: dict):
+        self._config = config
+        self._queue = self._load_queue()
+
+    def plan(self, event_type: str, context: dict,
+             narratives: dict) -> list:
+        posts = []
+        channels = self._config.get("channels", {})
+        for channel, text in narratives.items():
+            cfg = channels.get(channel, {})
+            content_type = self._classify(event_type, text, channel)
+            fmt = self._best_format(text, channel, content_type)
+            if fmt == "thread":
+                posts += self._build_thread(channel, text, cfg, content_type, context)
+            elif fmt == "series":
+                posts += self._build_series(channel, context, cfg)
+            else:
+                posts.append(ScheduledPost(
+                    channel=channel, text=text[:cfg.get("max_chars", 3000)],
+                    scheduled_at=self._best_time(channel, content_type), format="single",
+                ))
+        return self._space_out(posts)
+
+    def _classify(self, event_type, text, channel):
+        if event_type in ("on_feature_shipped", "on_pr_merged"):
+            return "announcement"
+        if event_type == "on_review_passed":
+            return "insight"
+        return "deep_dive" if len(text) > 500 or channel == "linkedin" else "insight"
+
+    def _best_format(self, text, channel, content_type):
+        if channel != "x":
+            return "single"
+        max_chars = self._config.get("channels", {}).get("x", {}).get("max_chars", 280)
+        if len(text) > max_chars * 1.5 and self._ai_yes_no(
+            f"Does this have multiple distinct insights for a thread? {text[:400]}"
+        ):
+            return "thread"
+        if content_type in ("announcement", "deep_dive") and len(text) > 400:
+            return "series"
+        return "single"
+
+    def _ai_yes_no(self, question):
+        try:
+            deepseek = os.path.expanduser("~/bin/deepseek")
+            r = subprocess.run([deepseek, "--flash", question], capture_output=True, text=True, timeout=15)
+            return "YES" in (r.stdout or "").upper()[:10]
+        except Exception:
+            return False
+
+    def _build_thread(self, channel, text, cfg, content_type, context):
+        max_chars = cfg.get("max_chars", 280)
+        tweets = self._split_tweets(text, max_chars)
+        if len(tweets) <= 1:
+            return [ScheduledPost(channel=channel, text=text[:max_chars],
+                    scheduled_at=self._best_time(channel, content_type), format="single")]
+        base = self._next_slot(channel, content_type)
+        posts = []
+        for i, t in enumerate(tweets):
+            label = f"{t} ({i+1}/{len(tweets)})" if len(tweets) > 1 else t
+            posts.append(ScheduledPost(channel=channel, text=label,
+                scheduled_at=base.isoformat(), format="thread_tweet",
+                thread_index=i+1, thread_total=len(tweets)))
+            base += timedelta(minutes=2)
+        return posts
+
+    def _split_tweets(self, text, max_chars):
+        tweets, current = [], ""
+        for s in text.replace("\n", " ").split(". "):
+            test = f"{current}. {s}" if current else s
+            if len(test) > max_chars and current:
+                tweets.append(current.strip())
+                current = s
+            else:
+                current = test
+        if current:
+            tweets.append(current.strip()[:max_chars])
+        return tweets
+
+    def _build_series(self, channel, context, cfg):
+        what, body = context.get("what", ""), context.get("context", "")[:500]
+        posts = []
+        for stage, delay, tone in SERIES_TEMPLATE:
+            prompt = (f"Write a {stage} post ({tone}) for {channel.upper()} "
+                      f"about: {what}. Context: {body}. Max {cfg.get('max_chars', 280)} chars.")
+            try:
+                r = subprocess.run(
+                    [os.path.expanduser("~/bin/deepseek"), "--flash", prompt],
+                    capture_output=True, text=True, timeout=30)
+                text = r.stdout.strip() if r.returncode == 0 else ""
+            except Exception:
+                text = ""
+            if text:
+                ct = "deep_dive" if stage != "teaser" else "announcement"
+                posts.append(ScheduledPost(channel=channel, text=text[:cfg.get("max_chars", 3000)],
+                    scheduled_at=self._best_time(channel, ct, delay), format=f"series_{stage}"))
+        return posts
+
+    def _best_time(self, channel, content_type, offset_days=0):
+        times = BEST_TIMES.get(channel, {}).get(content_type, BEST_TIMES.get(channel, {}).get("insight", ["Tue 09:00"]))
+        now = datetime.now(timezone.utc)
+        for d in range(offset_days, offset_days + 14):
+            target = now + timedelta(days=d)
+            day = target.strftime("%a")
+            for t in times:
+                if t.startswith(day):
+                    h, m = map(int, t.split(" ")[1].split(":"))
+                    return target.replace(hour=h, minute=m, second=0, microsecond=0).isoformat()
+        return (now + timedelta(days=offset_days)).replace(hour=9, minute=0, second=0, microsecond=0).isoformat()
+
+    def _next_slot(self, channel, content_type):
+        candidate = datetime.fromisoformat(self._best_time(channel, content_type))
+        for post in self._queue:
+            existing = datetime.fromisoformat(post["scheduled_at"])
+            if abs((candidate - existing).total_seconds()) < 7200:
+                candidate += timedelta(hours=2)
+        return candidate
+
+    def _space_out(self, posts):
+        if not posts:
+            return posts
+        used = {p["scheduled_at"][:13] for p in self._queue}
+        for p in posts:
+            dt = datetime.fromisoformat(p.scheduled_at)
+            while dt.isoformat()[:13] in used:
+                dt += timedelta(hours=1)
+            used.add(dt.isoformat()[:13])
+            p.scheduled_at = dt.isoformat()
+        return sorted(posts, key=lambda p: p.scheduled_at)
+
+    def commit(self, posts):
+        for p in posts:
+            self._queue.append({"channel": p.channel, "text": p.text[:100],
+                               "scheduled_at": p.scheduled_at, "format": p.format})
+        self._save_queue()
+
+    def _load_queue(self):
+        try:
+            return json.loads((Path.home() / ".maggy" / "build-in-public" / "schedule.json").read_text())
+        except Exception:
+            return []
+
+    def _save_queue(self):
+        qf = Path.home() / ".maggy" / "build-in-public" / "schedule.json"
+        qf.parent.mkdir(parents=True, exist_ok=True)
+        qf.write_text(json.dumps(self._queue[-50:], indent=2))
 
 
 def register(bus: HookBus, manifest: PluginManifest):
@@ -51,6 +238,7 @@ class BuildInPublic:
         self._manifest = manifest
         self._config = getattr(manifest, 'config', manifest.get('config', {}))
         self._anonymize = self._load_anonymize()
+        self._strategy = ContentStrategy(self._config)
         self._posts_today = 0
         self._last_post_date = ""
 
@@ -93,61 +281,49 @@ class BuildInPublic:
             return False
         return True
 
-    async def handle_pr_merged(self, payload: dict):
-        """PR merged → generate and schedule post."""
+    async def _handle_event(self, event_type: str, payload: dict):
+        """Generic handler — classify, plan, schedule."""
         if not self._check_rate_limit():
             return
 
-        title = payload.get("title", "a feature")
-        body = payload.get("body", "")[:1000]
-        branch = payload.get("branch", "")
-        url = payload.get("preview_url", "")
+        what = payload.get("title") or payload.get("feature") or payload.get("what", "")
+        body = payload.get("body", "")[:1000] or payload.get("context", "")[:1000]
+        context = {"what": what, "context": body, **payload}
 
-        narrative = self._build_narrative("shipped", {
-            "what": title, "context": body, "branch": branch,
-        })
+        # Phase 1: Build channel-native narratives
+        narratives = self._build_narrative(event_type, context)
 
-        posts = self._format_posts(narrative, url)
-        await self._schedule(posts, url)
+        # Phase 2: Strategy engine decides format + timing
+        scheduled = self._strategy.plan(event_type, context, narratives)
+
+        # Phase 3: Capture screenshot if feature shipped
+        screenshot_path = ""
+        if event_type in ("on_feature_shipped", "on_pr_merged"):
+            screenshot_path = await self._capture_screenshot(
+                payload.get("url", payload.get("preview_url", ""))
+            )
+
+        # Phase 4: Schedule all posts
+        await self._schedule_posts([s.__dict__ for s in scheduled], screenshot_path)
+
+        # Phase 5: Commit to queue
+        self._strategy.commit(scheduled)
+
+        # Log the plan
+        self._log_plan(scheduled)
+
+    async def handle_pr_merged(self, payload: dict):
+        await self._handle_event("on_pr_merged", payload)
 
     async def handle_feature_shipped(self, payload: dict):
-        """Feature shipped → hero post with screenshot."""
-        if not self._check_rate_limit():
-            return
-
-        feature = payload.get("feature", "a feature")
-        commits = payload.get("commits", "")
-        outcome = payload.get("outcome", "")
-
-        narrative = self._build_narrative("feature", {
-            "what": feature, "commits": commits, "outcome": outcome,
-        })
-
-        screenshot_path = await self._capture_screenshot(
-            payload.get("url", "http://localhost:3000"),
-        )
-
-        posts = self._format_posts(narrative, screenshot_path)
-        await self._schedule(posts, screenshot_path)
+        await self._handle_event("on_feature_shipped", payload)
 
     async def handle_review_passed(self, payload: dict):
-        """Multi-model review unanimously approved → share the approach."""
-        if not self._check_rate_limit():
+        if payload.get("verdict", "") != "APPROVED":
             return
-
-        plan = payload.get("plan_summary", "")
-        verdict = payload.get("verdict", "")
-
-        if verdict != "APPROVED":
-            return  # Only share unanimous approvals
-
-        narrative = self._build_narrative("architecture", {
-            "what": "architected a solution",
-            "context": plan[:500],
-        })
-
-        posts = self._format_posts(narrative)
-        await self._schedule(posts)
+        if not payload.get("plan_summary"):
+            payload["plan_summary"] = "architected a solution"
+        await self._handle_event("on_review_passed", payload)
 
     def _build_narrative(self, event_type: str, context: dict) -> dict:
         """Synthesize narrative arcs per channel. Returns {channel: text}."""
@@ -218,7 +394,16 @@ class BuildInPublic:
         except Exception:
             return now.isoformat()
 
-    async def _schedule(self, posts: list[dict], media_path: str = ""):
+    def _log_plan(self, scheduled: list):
+        """Log the full schedule plan."""
+        plan_dir = Path.home() / ".maggy" / "build-in-public"
+        plan_dir.mkdir(parents=True, exist_ok=True)
+        plan_file = plan_dir / "schedule-plan.json"
+        plan_file.write_text(json.dumps(
+            [s.__dict__ for s in scheduled], indent=2, default=str,
+        ))
+
+    async def _schedule_posts(self, posts: list[dict], media_path: str = ""):
         """Schedule posts to Buffer — one per channel."""
         token = os.environ.get("BUFFER_ACCESS_TOKEN", "")
         if not token:
