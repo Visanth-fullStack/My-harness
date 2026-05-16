@@ -138,15 +138,15 @@ status_line() {
   fi
 }
 
-status_line "Qwen3 (local)" "$LOCAL_ENABLED" "$0"
-status_line "DeepSeek Flash" "$DEEPSEEK_ENABLED" "$0.14/M"
-status_line "DeepSeek Pro" "$DEEPSEEK_ENABLED" "$0.44/M"
-status_line "Gemini Flash-Lite" "$GEMINI_ENABLED" "$0.10/M"
-status_line "Gemini Flash" "$GEMINI_ENABLED" "$0.15/M"
-status_line "Gemini Pro Search" "$GEMINI_ENABLED" "$1.25/M"
-status_line "Kimi K2.6" 1 "$0.60/M"
+status_line "Qwen3 (local)" "$LOCAL_ENABLED" "\$0"
+status_line "DeepSeek Flash" "$DEEPSEEK_ENABLED" "\$0.14/M"
+status_line "DeepSeek Pro" "$DEEPSEEK_ENABLED" "\$0.44/M"
+status_line "Gemini Flash-Lite" "$GEMINI_ENABLED" "\$0.10/M"
+status_line "Gemini Flash" "$GEMINI_ENABLED" "\$0.15/M"
+status_line "Gemini Pro Search" "$GEMINI_ENABLED" "\$1.25/M"
+status_line "Kimi K2.6" 1 "\$0.60/M"
 status_line "Codex" "$CODEX_ENABLED" "varies"
-status_line "Claude" 1 "$3-5/M"
+status_line "Claude" 1 "\$3-5/M"
 
 echo "  ╠══════════════════════════════════════╣"
 printf "  ║  %d of %d models active              ║\n" "$ACTIVE" "$TOTAL"
