@@ -18,6 +18,7 @@ mkdir -p "$CLAUDE_DIR/commands"
 mkdir -p "$CLAUDE_DIR/skills"
 mkdir -p "$CLAUDE_DIR/hooks"
 mkdir -p "$CLAUDE_DIR/rules"
+mkdir -p "$HOME/bin"
 
 # Copy all commands
 cp "$SCRIPT_DIR/commands/"*.md "$CLAUDE_DIR/commands/"
@@ -71,7 +72,17 @@ ls -1 "$CLAUDE_DIR/rules/" | sed 's/^/  - /' | sed 's/\.md$//'
 cp "$SCRIPT_DIR/hooks/"* "$CLAUDE_DIR/hooks/" 2>/dev/null || true
 chmod +x "$CLAUDE_DIR/hooks/"* 2>/dev/null || true
 echo ""
-echo "✓ Installed git hooks (templates)"
+echo "✓ Installed Claude Code hooks"
+
+# Install delegation scripts (multi-model routing)
+echo ""
+echo "Installing delegation scripts..."
+if [ -d "$SCRIPT_DIR/bin" ]; then
+  cp "$SCRIPT_DIR/bin/"* "$HOME/bin/" 2>/dev/null || true
+  chmod +x "$HOME/bin/"* 2>/dev/null || true
+  echo "✓ Installed delegation scripts:"
+  ls -1 "$HOME/bin/" 2>/dev/null | grep -v route-task | sed 's/^/  - /'
+fi
 
 # Copy templates
 echo ""

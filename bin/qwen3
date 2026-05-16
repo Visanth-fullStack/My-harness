@@ -1,0 +1,4 @@
+#!/bin/bash
+curl -s http://localhost:11434/api/chat \
+  -d "{\"model\": \"qwen3-coder:30b-a3b-q8_0\", \"messages\": [{\"role\": \"user\", \"content\": $(echo "$1" | jq -Rs .)}], \"stream\": false, \"options\": {\"temperature\": 0.3}}" \
+  | jq -r '.message.content'
