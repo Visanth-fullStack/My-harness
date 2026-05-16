@@ -9,12 +9,27 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
 from maggy.mnemos.constants import (
     FATIGUE_ROUTING_ESCALATE as _ESCALATE,
     FATIGUE_ROUTING_PREMIUM as _REM,
 )
 
 from .models import ModelTier
+
+# Model-level budget caps (daily, in USD) — block/demote when exceeded
+MODEL_DAILY_BUDGETS: dict[str, float] = {
+    "claude": 2.00,         # Max $2/day for Claude — back off after 50% of this
+    "gemini-pro-search": 1.00,
+    "codex": 1.50,
+    "kimi": 0.50,
+}
+# Warning threshold: start biasing away at this fraction of budget
+BUDGET_WARN_THRESHOLD = 0.5   # 50% of daily budget → start demoting
+BUDGET_BLOCK_THRESHOLD = 0.8  # 80% → block entirely for non-critical tasks
 
 
 DEFAULT_TIERS: list[ModelTier] = [
@@ -138,15 +153,18 @@ def route_task(
         t for t in available if t.role == "validator"
     ]
 
+    model_usage = _get_model_usage_today()
     primary = _select_primary(
         complexity_score, task_type, primaries, stakes, fatigue,
+        model_usage=model_usage,
     )
     validator = _select_validator(
         complexity_score, security_sensitive, validators, stakes,
     )
     fallback = _build_fallback(primary, primaries)
     reason = _build_reason(
-        primary, complexity_score, task_type, security_sensitive
+        primary, complexity_score, task_type, security_sensitive,
+        model_usage=model_usage,
     )
 
     return RoutingDecision(
@@ -157,22 +175,82 @@ def route_task(
     )
 
 
+def _get_model_usage_today() -> dict[str, float]:
+    """Read routing log and estimate per-model spend for today."""
+    path = Path.home() / ".claude" / "routing-log.jsonl"
+    if not path.exists():
+        return {}
+
+    now = datetime.now(timezone.utc)
+    since = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    usage: dict[str, float] = {}
+
+    # Cost per token estimates for spend calculation
+    rates = {
+        "claude": 3.0, "codex": 2.5, "gemini-pro-search": 1.25,
+        "kimi": 0.6, "deepseek-pro": 0.44, "gemini-flash": 0.15,
+        "deepseek-flash": 0.14, "gemini-flash-lite": 0.10,
+    }
+
+    for line in path.read_text().strip().split("\n"):
+        try:
+            entry = json.loads(line)
+            ts = entry.get("ts", "")
+            ts_dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            if ts_dt < since:
+                continue
+            tier = entry.get("tier", "").lower().replace("_", "-")
+            saved = entry.get("tokens_saved", 0) or 0
+            est_tokens = saved * 2  # rough estimate
+            rate = rates.get(tier, 0.44)
+            usage[tier] = usage.get(tier, 0.0) + (est_tokens / 1_000_000) * rate
+        except (json.JSONDecodeError, ValueError, TypeError):
+            pass
+
+    return usage
+
+
 def _select_primary(
     score: int,
     task_type: str,
     tiers: list[ModelTier],
     stakes: str = "low",
     fatigue: float = 0.0,
+    model_usage: dict[str, float] | None = None,
 ) -> ModelTier:
-    """Pick the cheapest tier that handles the complexity."""
+    """Pick the cheapest tier that handles the complexity, factoring in agent fatigue AND model-level budget/usage fatigue."""
     candidates = [
         t for t in tiers
         if t.complexity_min <= score <= t.complexity_max
     ]
     if not candidates:
-        return tiers[-1]  # Fallback to most capable
+        return tiers[-1]
 
     candidates.sort(key=lambda t: t.cost_rank)
+
+    # Model budget check: if a model is overused today, demote or block it
+    if model_usage is None:
+        model_usage = _get_model_usage_today()
+
+    # Filter out models that have exceeded their daily budget
+    budget_filtered = []
+    for c in candidates:
+        daily_budget = MODEL_DAILY_BUDGETS.get(c.name, 999.0)
+        spent_today = model_usage.get(c.name, 0.0)
+        usage_pct = spent_today / daily_budget if daily_budget > 0 else 0.0
+
+        # Block: >80% budget used, and this isn't critical
+        if usage_pct >= BUDGET_BLOCK_THRESHOLD and task_type not in ("security", "auth", "billing") and stakes != "high":
+            continue  # Skip this model entirely
+
+        # Warn: >50% budget — only include if this is the cheapest OR the task is high-complexity
+        if usage_pct >= BUDGET_WARN_THRESHOLD and c.cost_rank > candidates[0].cost_rank and score < 7:
+            continue  # Skip — there's a cheaper model available
+
+        budget_filtered.append(c)
+
+    if budget_filtered:
+        candidates = budget_filtered
 
     # High stakes or security: skip cheapest tiers
     high_risk = (
@@ -186,7 +264,7 @@ def _select_primary(
         if capable:
             return capable[0]
 
-    # Fatigue escalation: use capable models when tired
+    # Agent fatigue escalation: use capable models when tired
     if fatigue >= _REM:
         premium = _tier_at_rank(candidates, tiers, 4)
         if premium:
@@ -244,12 +322,25 @@ def _build_reason(
     score: int,
     task_type: str,
     security_sensitive: bool,
+    model_usage: dict[str, float] | None = None,
 ) -> str:
-    """Human-readable routing explanation."""
+    """Human-readable routing explanation, including budget/fatigue info."""
     parts = [f"complexity={score}/10"]
     if task_type != "general":
         parts.append(f"type={task_type}")
     if security_sensitive:
         parts.append("security-sensitive")
+
+    # Add model budget status
+    if model_usage:
+        spent = model_usage.get(primary.name, 0.0)
+        budget = MODEL_DAILY_BUDGETS.get(primary.name)
+        if budget and spent > 0:
+            pct = spent / budget * 100
+            if pct > 80:
+                parts.append(f"budget={pct:.0f}% (near cap, would demote if non-critical)")
+            elif pct > 50:
+                parts.append(f"budget={pct:.0f}%")
+
     parts.append(f"routed to {primary.name}")
     return ", ".join(parts)
