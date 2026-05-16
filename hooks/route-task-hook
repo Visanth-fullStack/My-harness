@@ -38,6 +38,7 @@ Tiers:
 - GEMINI_FLASH_LITE: bulk extraction, classification pipelines, CIG data processing, large-scale cheap summarization, non-code batch tasks
 - DEEPSEEK_PRO: multi-file features, refactors, debugging, medium-complexity coding, API endpoints, database queries, test suites, documentation writing
 - GEMINI_FLASH: multimodal tasks, image screenshots analysis, video content processing, brand asset analysis, audio transcription review
+- GEMINI_CLI: full coding agent with tools (grep, file read/write, MCP, web search), implements features end-to-end, debugging with execution, similar capability to Claude Code but via Gemini
 - KIMI: single-file code review, medium reasoning, commit messages, summarising diffs or docs, research questions, changelog generation
 - GEMINI_PRO_SEARCH: deep research with Google Search grounding, competitor intelligence, market research, 2M context document analysis
 - CODEX: bulk boilerplate generation, mechanical changes across many files, large-scale test generation
@@ -49,7 +50,7 @@ Task: ${PROMPT}"
 _classify_parse() {
   local raw="$1"
   [ -z "$raw" ] && return 1
-  TIER=$(echo "$raw" | grep -oE '^(QWEN|DEEPSEEK_FLASH|GEMINI_FLASH_LITE|DEEPSEEK_PRO|GEMINI_FLASH|KIMI|GEMINI_PRO_SEARCH|CODEX|CLAUDE)' || echo "")
+  TIER=$(echo "$raw" | grep -oE '^(QWEN|DEEPSEEK_FLASH|GEMINI_FLASH_LITE|DEEPSEEK_PRO|GEMINI_FLASH|GEMINI_CLI|KIMI|GEMINI_PRO_SEARCH|CODEX|CLAUDE)' || echo "")
   [ -z "$TIER" ] && return 1
   REASON=$(echo "$raw" | sed 's/^[A-Z_]*:\s*//')
   return 0
@@ -145,6 +146,9 @@ case "$TIER" in
     ;;
   GEMINI_FLASH)
     CTX="ROUTING DECISION: GEMINI_FLASH (multimodal, \$0.15/M in). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/gemini --flash \"<prompt>\" and return the result. Do NOT process this yourself — delegate to gemini.${TOOLS_HINT}"
+    ;;
+  GEMINI_CLI)
+    CTX="ROUTING DECISION: GEMINI_CLI (full coding agent, \$0.25-1.25/M in). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/gemini-cli --pro \"<prompt>\" and return the result. Do NOT process this yourself — delegate to gemini-cli.${TOOLS_HINT}"
     ;;
   KIMI)
     CTX="ROUTING DECISION: KIMI (local). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/kimi --quiet -p \"<prompt>\" and return the result. Do NOT process this yourself — delegate to kimi.${TOOLS_HINT}"
