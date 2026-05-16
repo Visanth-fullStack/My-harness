@@ -49,29 +49,51 @@ State:
 
 Reply with exactly one word: REVIEW_NEEDED or NO_REVIEW. Then a colon and a one-sentence reason."
 
-# ── Ask qwen3 to decide ──────────────────────────────────────────────────
-if curl -s --connect-timeout 2 http://localhost:11434/api/tags >/dev/null 2>&1; then
+# ── Cascading classifier to decide ───────────────────────────────────────
+# Try: qwen3 (free) → kimi (free) → deepseek-flash (~$0.0001) → skip
+DECISION=""
+CLASSIFIER=""
+
+# Level 1: qwen3 via Ollama (free, local)
+if [ -z "$DECISION" ] && curl -s --connect-timeout 2 http://localhost:11434/api/tags >/dev/null 2>&1; then
   CONTENT=$(echo "$CLASSIFY_PROMPT" | jq -Rs .)
-  DECISION=$(curl -s --max-time 8 http://localhost:11434/api/chat \
-    -d "{\"model\": \"qwen3-coder:30b-a3b-q8_0\", \"messages\": [{\"role\": \"user\", \"content\": ${CONTENT}}], \"stream\": false, \"options\": {\"temperature\": 0.1, \"num_predict\": 30}}" \
+  DECISION=$(curl -s --max-time 6 http://localhost:11434/api/chat \
+    -d "{\"model\": \"qwen3-coder:30b-a3b-q8_0\", \"messages\": [{\"role\": \"user\", \"content\": ${CONTENT}}], \"stream\": false, \"options\": {\"temperature\": 0.1, \"num_predict\": 20}}" \
     2>/dev/null | jq -r '.message.content // ""' | head -1 || true)
-else
-  # Ollama down — skip this check, will retry next time
+  [ -n "$DECISION" ] && CLASSIFIER="qwen3"
+fi
+
+# Level 2: kimi CLI (free, local)
+if [ -z "$DECISION" ] && [ -x "$HOME/bin/kimi" ]; then
+  DECISION=$("$HOME/bin/kimi" --quiet -p "$CLASSIFY_PROMPT" 2>/dev/null | tail -1 || true)
+  [ -n "$DECISION" ] && CLASSIFIER="kimi"
+fi
+
+# Level 3: deepseek-flash (cheap API, ~$0.0001)
+if [ -z "$DECISION" ] && [ -x "$HOME/bin/deepseek" ] && [ -n "$DEEPSEEK_API_KEY" ]; then
+  DECISION=$("$HOME/bin/deepseek" --flash "$CLASSIFY_PROMPT" 2>/dev/null | tail -1 || true)
+  [ -n "$DECISION" ] && CLASSIFIER="deepseek-flash"
+fi
+
+# All classifiers unavailable — skip, retry next time
+if [ -z "$DECISION" ]; then
+  echo "[auto-review] all classifiers unavailable — skip (turn $TURN_COUNT)" >&2
   exit 0
 fi
 
+# ── Act on decision ──────────────────────────────────────────────────────
 if echo "$DECISION" | grep -qi "REVIEW_NEEDED"; then
   REASON=$(echo "$DECISION" | sed 's/^[^:]*:\s*//')
-  echo "[auto-review] qwen3: REVIEW_NEEDED — $REASON (turn $TURN_COUNT)" >&2
+  echo "[auto-review] $CLASSIFIER: REVIEW_NEEDED — $REASON (turn $TURN_COUNT)" >&2
 
   REVIEW_BIN="$HOME/bin/review"
   if [ -x "$REVIEW_BIN" ]; then
-    nohup "$REVIEW_BIN" --deepseek --kimi "Review the recent changes in $CWD (branch: $BRANCH). Context: $GIT_DIFF_STAT. Reason qwen3 flagged for review: $REASON" \
+    nohup "$REVIEW_BIN" --deepseek --kimi "Review the recent changes in $CWD (branch: $BRANCH). Context: $GIT_DIFF_STAT. Reason flagged: $REASON" \
       > "$HOME/.claude/last-review.txt" 2>&1 &
-    echo "{\"last_turn\": $TURN_COUNT, \"last_check\": $TURN_COUNT, \"ts\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"reason\": $(echo "$REASON" | jq -Rs .), \"classifier\": \"qwen3\"}" > "$REVIEW_STATE"
+    echo "{\"last_turn\": $TURN_COUNT, \"last_check\": $TURN_COUNT, \"ts\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"reason\": $(echo "$REASON" | jq -Rs .), \"classifier\": \"$CLASSIFIER\"}" > "$REVIEW_STATE"
   fi
 else
-  echo "[auto-review] qwen3: NO_REVIEW (turn $TURN_COUNT)" >&2
+  echo "[auto-review] $CLASSIFIER: NO_REVIEW (turn $TURN_COUNT)" >&2
 fi
 
 exit 0
