@@ -65,7 +65,7 @@ class ScheduledPost:
 
 logger = logging.getLogger(__name__)
 
-BUFFER_API = "https://api.bufferapp.com/1"
+BUFFER_API = "https://api.buffer.com"  # GraphQL endpoint
 
 
 class ContentStrategy:
@@ -404,56 +404,111 @@ class BuildInPublic:
         ))
 
     async def _schedule_posts(self, posts: list[dict], media_path: str = ""):
-        """Schedule posts to Buffer — one per channel."""
+        """Schedule posts via Buffer GraphQL API."""
         token = os.environ.get("BUFFER_ACCESS_TOKEN", "")
         if not token:
             for post in posts:
                 logger.info(
-                    "build-in-public: [%s] BUFFER_ACCESS_TOKEN not set, "
-                    "would have posted: %s", post["channel"], post["text"][:100]
+                    "build-in-public: [%s] no token, would have posted: %s",
+                    post["channel"], post["text"][:100],
                 )
                 self._log_post(post)
             return
 
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                profiles_resp = await client.get(
-                    f"{BUFFER_API}/profiles.json",
-                    params={"access_token": token},
-                )
-                profiles_resp.raise_for_status()
-                profiles = profiles_resp.json()
-
+            org_id, channels = await self._fetch_buffer_channels(token)
+            if not channels:
+                logger.warning("build-in-public: no Buffer channels found")
                 for post in posts:
-                    channel = post["channel"]
-                    profile = next(
-                        (p for p in profiles
-                         if p.get("service", "").lower() == channel
-                         or channel in p.get("formatted_service", "").lower()),
+                    self._log_post(post)
+                return
+
+            async with httpx.AsyncClient(timeout=30) as client:
+                for post in posts:
+                    service = "linkedin" if post["channel"] == "linkedin" else "twitter"
+                    ch = next(
+                        (c for c in channels
+                         if c.get("service", "").lower() == service),
                         None,
                     )
-                    if not profile:
-                        logger.warning("build-in-public: no Buffer profile for %s", channel)
+                    if not ch:
+                        logger.warning("build-in-public: no Buffer %s channel", service)
                         self._log_post(post)
                         continue
 
-                    resp = await client.post(
-                        f"{BUFFER_API}/updates/create.json",
-                        params={"access_token": token},
-                        data={
-                            "profile_ids[]": profile["id"],
+                    mutation = """
+                    mutation SchedulePost($input: CreatePostInput!) {
+                      createPost(input: $input) {
+                        post { id status dueAt text channelService }
+                      }
+                    }"""
+                    variables = {
+                        "input": {
+                            "channelId": ch["id"],
                             "text": post["text"],
-                            "now": False,
-                            "scheduled_at": post.get("scheduled_at", ""),
+                            "schedulingType": "AUTOMATIC",
+                            "dueAt": post.get("scheduled_at", ""),
+                            "mode": "customScheduled",
+                        }
+                    }
+                    resp = await client.post(
+                        BUFFER_API,
+                        headers={
+                            "Authorization": f"Bearer {token}",
+                            "Content-Type": "application/json",
                         },
+                        json={"query": mutation, "variables": variables},
                     )
-                    resp.raise_for_status()
-                    self._posts_today += 1
-                    logger.info("build-in-public: scheduled on %s", channel)
+                    if resp.status_code == 200 and "errors" not in resp.json():
+                        self._posts_today += 1
+                        logger.info("build-in-public: scheduled on %s via GraphQL",
+                                    post["channel"])
+                    else:
+                        error = resp.json().get("errors", [{}])[0].get("message", resp.text[:200])
+                        logger.warning("build-in-public: GraphQL error: %s", error)
+                        self._log_post(post)
         except Exception as e:
-            logger.warning("build-in-public: Buffer schedule failed: %s", e)
+            logger.warning("build-in-public: Buffer GraphQL failed: %s", e)
             for post in posts:
                 self._log_post(post)
+
+    async def _fetch_buffer_channels(self, token: str) -> tuple:
+        """Fetch org ID and channels from Buffer GraphQL."""
+        async with httpx.AsyncClient(timeout=15) as client:
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+            # Get org ID
+            resp = await client.post(
+                BUFFER_API,
+                headers=headers,
+                json={"query": "query { account { organizations { id name } } }"},
+            )
+            if resp.status_code != 200:
+                return "", []
+            data = resp.json()
+            orgs = data.get("data", {}).get("account", {}).get("organizations", [])
+            if not orgs:
+                return "", []
+            org_id = orgs[0]["id"]
+
+            # Get channels
+            resp = await client.post(
+                BUFFER_API,
+                headers=headers,
+                json={
+                    "query": """
+                    query GetChannels($input: ChannelsInput!) {
+                      channels(input: $input) {
+                        id name service type isDisconnected
+                      }
+                    }""",
+                    "variables": {"input": {"organizationId": org_id, "filter": None}},
+                },
+            )
+            channels = resp.json().get("data", {}).get("channels", [])
+            return org_id, channels
 
     def _log_post(self, post: dict):
         """Fallback: log post to file when Buffer unavailable."""
