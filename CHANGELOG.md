@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [6.25.0] - 2026-05-17
+
+### Added
+- **Grok (xAI) integration** — 10th model tier via OpenAI-compatible API at `api.x.ai/v1`
+- **10-tier routing**: Qwen3 → Gemini FL → DeepSeek Flash → DeepSeek Pro → Gemini Flash → Gemini CLI → Kimi → Grok → Gemini Pro Search → Codex → Claude
+- **Competitor Intelligence Dashboard** — per-project competitor tracking (maggy, chessiega, edubites)
+- **CompetitorIntel service**: auto-discovery, move tracking, threat levels, AI briefings
+- **`/api/competitor-intel/{project}`**: competitors, moves, briefing, scan, discover endpoints
+- **Usage-aware model routing**: per-model daily budget caps, auto-demote at 50%/80% thresholds
+- **Cross-model usage analytics**: `maggy-usage` CLI + `/api/usage/report`
+- **Per-response usage summary**: Stop hook shows route, cost, session delta
+- **Reddit monitoring**: 21 subreddits, auto-commenting via OAuth2
+- **X/Twitter API v2**: search, user lookup, live account monitoring
+- **Full AI ecosystem watch map**: 80+ accounts across 8 categories
+
+---
+
 ## [6.24.0] - 2026-05-16
 
 ### Added
