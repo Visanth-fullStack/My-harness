@@ -75,3 +75,79 @@ platforms:
       - name: Semantic Router
         handle: "@AurelioAI"
         trigger_keywords: [semantic router, aurelio]
+      # Memory Management Competitors
+      - name: Mem0
+        handle: "@mem0ai"
+        trigger_keywords: [mem0, memory layer]
+      - name: Pinecone
+        handle: "@pinecone"
+        trigger_keywords: [pinecone, vector database]
+      - name: Letta (MemGPT)
+        handle: "@letta_ai"
+        trigger_keywords: [letta, memgpt, agent memory]
+      - name: Zep
+        handle: "@getzep"
+        trigger_keywords: [zep, ai memory]
+      - name: Cognee
+        handle: "@cognee_ai"
+        trigger_keywords: [cognee, knowledge graph]
+      - name: Chroma
+        handle: "@trychroma"
+        trigger_keywords: [chroma, embedding database]
+      # Dynamic Routing Competitors
+      - name: Not Diamond
+        handle: "@notdiamondai"
+        trigger_keywords: [not diamond, model router]
+      - name: Unify
+        handle: "@unifyai"
+        trigger_keywords: [unify, provider routing]
+      - name: Martian
+        handle: "@martianai"
+        trigger_keywords: [martian, llm classifier]
+      # Autonomous SDLC Competitors
+      - name: Cognition (Devin)
+        handle: "@cognition_labs"
+        trigger_keywords: [devin, cognition, autonomous engineer]
+      - name: Factory AI
+        handle: "@factory_ai"
+        trigger_keywords: [factory, autonomous sdlc]
+      - name: Cosine Genie
+        handle: "@cosine_ai"
+        trigger_keywords: [cosine, genie, autonomous dev]
+      - name: Pythagora
+        handle: "@pythagora_ai"
+        trigger_keywords: [pythagora, gpt-pilot]
+      - name: OpenHands
+        handle: "@allhands_ai"
+        trigger_keywords: [openhands, opendevin]
+      - name: Cursor
+        handle: "@cursor_ai"
+        trigger_keywords: [cursor, ai ide]
+      - name: Aider
+        handle: "@aider_ai"
+        trigger_keywords: [aider, pair programming]
+      - name: Replit
+        handle: "@Replit"
+        trigger_keywords: [replit, cloud ide]
+      - name: Lovable (GPT-Engineer)
+        handle: "@lovable_dev"
+        trigger_keywords: [gpt-engineer, lovable, codebase]
+      # Build-in-Public Influencers
+      - name: Peter Steinberger
+        handle: "@steipete"
+        trigger_keywords: [steinberger, pspdfkit]
+      - name: Pieter Levels
+        handle: "@levelsio"
+        trigger_keywords: [levelsio, nomadlist, 12 startups]
+      - name: Marc Lou
+        handle: "@marc_louvion"
+        trigger_keywords: [marc lou, ship fast]
+      - name: Sahil Lavingia
+        handle: "@shl"
+        trigger_keywords: [sahil, gumroad]
+      - name: Danny Postma
+        handle: "@dannypostmaa"
+        trigger_keywords: [postma, indie hacking]
+      - name: Alex West
+        handle: "@alexanderisora"
+        trigger_keywords: [alexander isora, design]
