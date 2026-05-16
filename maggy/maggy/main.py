@@ -20,6 +20,7 @@ from maggy import config as config_mod
 from maggy import providers
 from maggy.api.routes import router as api_router
 from maggy.api.routes_aggregator import router as aggregator_router
+from maggy.api.routes_competitors import router as competitor_intel_router
 from maggy.api.routes_budget import router as budget_router
 from maggy.api.routes_plugins import router as plugins_router
 from maggy.api.routes_testing import router as testing_router
