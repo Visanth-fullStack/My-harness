@@ -142,13 +142,13 @@ case "$TIER" in
     CTX="ROUTING DECISION: GEMINI_FLASH_LITE (cheapest API, \$0.10/M in). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/gemini --flash-lite \"<prompt>\" and return the result. Do NOT process this yourself — delegate to gemini.${TOOLS_HINT}"
     ;;
   DEEPSEEK_PRO)
-    CTX="ROUTING DECISION: DEEPSEEK_PRO (workhorse, \$0.44/M in). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/deepseek --pro \"<prompt>\" and return the result. Do NOT process this yourself — delegate to deepseek.${TOOLS_HINT}"
+    CTX="ROUTING DECISION: DEEPSEEK_PRO (workhorse, \$0.44/M in). Reason: ${REASON}. EXECUTE DIRECTLY — this complexity tier does not need planning. Run: /Users/alinaqishaheen/bin/deepseek --pro \"<prompt>\" and return the result. Do NOT process this yourself — delegate to deepseek.${TOOLS_HINT}"
     ;;
   GEMINI_FLASH)
     CTX="ROUTING DECISION: GEMINI_FLASH (multimodal, \$0.15/M in). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/gemini --flash \"<prompt>\" and return the result. Do NOT process this yourself — delegate to gemini.${TOOLS_HINT}"
     ;;
   GEMINI_CLI)
-    CTX="ROUTING DECISION: GEMINI_CLI (full coding agent, \$0.25-1.25/M in). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/gemini-cli --pro \"<prompt>\" and return the result. Do NOT process this yourself — delegate to gemini-cli.${TOOLS_HINT}"
+    CTX="ROUTING DECISION: GEMINI_CLI (coding agent, \$0.25-1.25/M in). Reason: ${REASON}. EXECUTE DIRECTLY — Gemini CLI has tools for implementation. Run: /Users/alinaqishaheen/bin/gemini-cli --pro \"<prompt>\" and return the result. Do NOT process this yourself — delegate to gemini-cli.${TOOLS_HINT}"
     ;;
   KIMI)
     CTX="ROUTING DECISION: KIMI (local). Reason: ${REASON}. Run: /Users/alinaqishaheen/bin/kimi --quiet -p \"<prompt>\" and return the result. Do NOT process this yourself — delegate to kimi.${TOOLS_HINT}"
@@ -160,7 +160,7 @@ case "$TIER" in
     CTX="ROUTING DECISION: CODEX. Reason: ${REASON}. Suggest the user run codex for this task, or use codex exec. Do NOT do bulk generation yourself.${TOOLS_HINT}"
     ;;
   CLAUDE)
-    CTX="ROUTING DECISION: CLAUDE. Reason: ${REASON}. Handle this task directly — it requires your full capabilities.${TOOLS_HINT}"
+    CTX="ROUTING DECISION: CLAUDE (architecture/security-critical). Reason: ${REASON}. PLAN FIRST — explore codebase, design approach, get approval before implementing. Use iCPG trace_path and get_architecture for context.${TOOLS_HINT}"
     ;;
 esac
 
