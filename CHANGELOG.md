@@ -6,6 +6,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [6.22.0] - 2026-05-16
+
+### Added
+
+#### Plugin System — Event-Driven Architecture
+- **`PluginManager`** — auto-discovers plugins from `~/.maggy/plugins/`, `maggy/plugins/`, `plugins/`
+- **`HookBus`** — typed event bus with subscribe/emit pattern, async handlers with error isolation
+- **`PluginManifest`** — YAML-defined: id, version, permissions, hooks, config schema
+- **`/api/plugins`** — list, reload, emit test events via REST API
+- **`plugin-trigger` (hook)** — standalone runner for Claude Bootstrap, no Maggy server needed
+- **Dynamic module loading** — plugins import at startup, registration lifecycle with `register(bus, manifest)`
+
+#### Build-in-Public Plugin — mWP First Plugin (7/11 Stars)
+- **Autonomous storyteller** — notices work (PR merged, feature shipped, review passed), extracts narrative arc, publishes without asking
+- **Multi-channel** — per-channel voice: LinkedIn (professional, teaches, 3000 chars) + X (sharp, punchy, 280 chars)
+- **AI-powered synthesis** — DeepSeek Flash generates channel-native narratives from event data
+- **Auto-redaction** — `anonymize.yaml` replaces sensitive names (zenloop→"a CX SaaS"), strips revenue/user data via regex
+- **Buffer API integration** — multi-profile scheduling per channel with fallback to `posts.jsonl`
+- **Playwright screenshots** — captures hero screenshots of deployed features
+- **Rate limiting** — configurable max posts/day per channel
+- **Per-channel scheduling** — LinkedIn 09:00 UTC, X 10:30 UTC weekdays
+
+#### Build-in-Public Skill
+- **`skills/build-in-public/SKILL.md`** — 137-line reference with channel best practices
+- What to share (technical decisions, failures, insights) vs never share (revenue, customers)
+- Channel-specific formatting, tone, timing, anti-patterns
+- Content calendar rhythm: daily X, weekly LinkedIn, per-event triggers
+- Engagement rate targets and measurement signals
+
+### Changed
+- **`README.md`** — plugin system section with build-in-public as featured plugin
+- **`main.py`** — plugin manager initialized at startup, plugins router registered
+
+---
+
 ## [6.21.0] - 2026-05-16
 
 ### Added

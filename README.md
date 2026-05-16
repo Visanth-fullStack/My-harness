@@ -54,6 +54,38 @@ The original scaffolding that sets up any project for AI-assisted development:
 | **Intent** | iCPG (code property graph) | Tracks *why* code exists, detects drift |
 | **Explore** | iCPG-powered code explorer | `trace_path`, `search_graph`, `query_graph` instead of grep |
 | **Routing** | Plan-vs-execute classifier | CLAUDE tier → PLAN FIRST. DEEPSEEK/GEMINI → EXECUTE DIRECTLY |
+| **Plugins** | Event-driven plugin system | Drop folder into `~/.maggy/plugins/`, auto-discovered on startup |
+
+## Plugin System
+
+Maggy has an mWP-first plugin architecture. Drop a folder with `plugin.yaml` + `plugin.py` into `~/.maggy/plugins/` or `plugins/` — it's auto-discovered and loaded at startup. Works standalone with Claude Bootstrap (no Maggy server needed).
+
+```yaml
+# plugin.yaml
+id: my-plugin
+version: 1
+entrypoint: plugin.py
+hooks:
+  - event: on_pr_merged
+    handler: handle_pr_merged
+  - event: on_feature_shipped
+    handler: handle_feature_shipped
+```
+
+**First plugin: Build-in-Public** — autonomous storyteller that notices your work, synthesizes a narrative, and publishes across channels without you asking.
+
+```
+PR merged → AI extracts narrative arc → anonymizes sensitive names
+→ formats per channel (LinkedIn teaches, X punches)
+→ schedules via Buffer API
+```
+
+- **Multi-channel**: LinkedIn (professional deep dives) + X (sharp one-liners) — different voice per platform
+- **Auto-redaction**: `anonymize.yaml` replaces company names, strips revenue/user data
+- **AI-powered**: DeepSeek synthesizes the story — not templates
+- **Zero-click**: Triggers from hooks, never asks for manual approval
+
+See `skills/build-in-public/SKILL.md` for channel best practices.
 
 ## Skills (62)
 
