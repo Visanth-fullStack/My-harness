@@ -21,6 +21,7 @@ from maggy import providers
 from maggy.api.routes import router as api_router
 from maggy.api.routes_aggregator import router as aggregator_router
 from maggy.api.routes_budget import router as budget_router
+from maggy.api.routes_testing import router as testing_router
 from maggy.api.routes_cikg import router as cikg_router
 from maggy.api.routes_deploy import router as deploy_router
 from maggy.api.routes_engram import router as engram_router
@@ -282,7 +283,7 @@ _ROUTERS = (
     history_router, improve_router, lexon_router,
     mesh_router, mesh_admin_router, observability_router,
     planning_router, process_router, projects_router,
-    routing_router, setup_router, users_router,
+    routing_router, setup_router, testing_router, users_router,
     orchestrator_router, ws_mesh_router,
 )
 
