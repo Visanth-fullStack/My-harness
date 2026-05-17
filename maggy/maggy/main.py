@@ -165,8 +165,8 @@ async def _start_heartbeat(app: FastAPI) -> None:
     app.state.heartbeat = sched
     logger.info("Heartbeat started — %d jobs", len(sched._jobs))
     # Load plugins
-    from maggy.plugins.manager import get_plugin_manager
-    pm = get_plugin_manager()
+    from maggy.plugins.manager import PluginManager
+    pm = PluginManager(app=app, scheduler=app.state.heartbeat)
     loaded = pm.load_all()
     app.state.plugins = pm
     logger.info("Plugins loaded — %d active", loaded)
