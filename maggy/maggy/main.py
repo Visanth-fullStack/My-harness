@@ -144,6 +144,21 @@ def _set_mode(app: FastAPI, cfg) -> None:
             setattr(app.state, attr, None)
         app.state.mode = "local"
 
+    # Auto-register codebases as projects
+    from maggy.config import ProjectConfig
+    registry = getattr(app.state, "registry", None)
+    if registry:
+        for cb in cfg.codebases:
+            try:
+                name = cb.key or Path(cb.path).name if cb.path else cb.key
+                if not registry.get(name):
+                    registry.add(ProjectConfig(
+                        name=name, repo=f"local/{name}",
+                        path=cb.path or "", default_branch="main",
+                    ))
+            except ValueError:
+                pass  # Already exists
+
 
 async def _start_heartbeat(app: FastAPI) -> None:
     """Register and start the heartbeat scheduler."""

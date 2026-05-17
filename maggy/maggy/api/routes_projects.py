@@ -79,10 +79,12 @@ async def add_project(
 
 @router.post("/create-new")
 async def create_new_project(
-    body: _NewProjectIn,
     request: Request,
     x_api_key: str | None = Header(None),
 ) -> dict:
+    import json as _json
+    raw = await request.json()
+    body = _NewProjectIn(name=raw.get("name",""), directory=raw.get("directory",""))
     """Create a new project directory and register it."""
     import subprocess
     from pathlib import Path
