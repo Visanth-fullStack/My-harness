@@ -103,7 +103,16 @@
       <a href="#" onclick="switchTab('forge')" data-tab="forge" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-hammer text-[11px] w-4 text-center opacity-60"></i> Forge</a>
       <a href="#" onclick="switchTab('settings')" data-tab="settings" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-sliders text-[11px] w-4 text-center opacity-60"></i> Settings</a>
     </nav>
-    <div class="px-3 py-2 border-t" style="border-color:var(--border)">
+    <div class="px-3 py-2 border-t space-y-2" style="border-color:var(--border)">
+      <div class="text-[10px] text-gray-500 px-2">
+        <span class="text-gray-600">Tracker:</span>
+        <select id="sidebar-tracker" onchange="setProjectTracker(this.value)" class="ml-1 bg-transparent text-gray-400 text-[10px] border border-white/5 rounded px-1 py-0.5 outline-none focus:border-orange-500/30">
+          <option value="">native</option>
+          <option value="github">github</option>
+          <option value="asana">asana</option>
+          <option value="monday">monday</option>
+        </select>
+      </div>
       <div id="sidebar-fatigue" class="text-[10px] text-gray-500 px-2">
         <span class="text-gray-600">Memory:</span> <span id="fatigue-badge" class="status-ok">—</span>
       </div>
@@ -236,6 +245,18 @@
       closeProjectSearch();
       document.getElementById('current-project-label').textContent = name;
       if (typeof switchProject === 'function') switchProject(name);
+    }
+    function setProjectTracker(type) {
+      var proj = document.getElementById('current-project-label').textContent;
+      if (!proj || proj === 'Select project...') return;
+      fetch('/api/projects/' + proj + '/config', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({tracker: type})
+      }).then(function() {
+        document.getElementById('sidebar-tracker').style.borderColor = 'rgba(34,197,94,0.4)';
+        setTimeout(function() { document.getElementById('sidebar-tracker').style.borderColor = ''; }, 1500);
+      });
     }
     function updateCurrentProject(name) {
       document.getElementById('current-project-label').textContent = name || 'Select project...';

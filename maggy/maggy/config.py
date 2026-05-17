@@ -78,6 +78,8 @@ class ProjectConfig:
     default_branch: str
     icpg: bool = True
     cikg: bool = False
+    tracker: str = ""          # native, github, asana, monday — empty = native
+    enabled_plugins: list[str] = field(default_factory=list)  # per-project plugin list
 
 
 @dataclass

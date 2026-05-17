@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel
 
@@ -116,6 +117,113 @@ async def create_new_project(
         "path": str(project_path),
         "message": f"Created {dir_name}/ — open terminal and run: cd {project_path} && claude"
     }
+@router.get("/{name}/tasks")
+async def list_tasks(
+    name: str,
+    request: Request,
+    x_api_key: str | None = Header(None),
+) -> dict:
+    """Get tasks for a project using its configured tracker."""
+    check_auth(request, x_api_key)
+    registry = request.app.state.registry
+    if not registry:
+        raise HTTPException(503, "Not configured")
+    project = registry.get(name)
+    if not project:
+        raise HTTPException(404, f"Project '{name}' not found")
+
+    from maggy.services.task_provider import get_provider, Task
+    provider = get_provider(getattr(project, "tracker", "native") or "native")
+    config = {"tracker_type": getattr(project, "tracker", "native") or "native"}
+
+    tasks = await provider.list_tasks(getattr(project, "path", ""), config)
+    return {"tasks": [t.__dict__ for t in tasks], "tracker": config["tracker_type"]}
+
+
+@router.post("/{name}/tasks")
+async def create_task(
+    name: str,
+    request: Request,
+    x_api_key: str | None = Header(None),
+) -> dict:
+    """Create a task in the project's tracker."""
+    import json as _json
+    body = await request.json()
+    title = body.get("title", "")
+    if not title:
+        raise HTTPException(400, "title required")
+
+    check_auth(request, x_api_key)
+    registry = request.app.state.registry
+    if not registry:
+        raise HTTPException(503, "Not configured")
+    project = registry.get(name)
+    if not project:
+        raise HTTPException(404, f"Project '{name}' not found")
+
+    from maggy.services.task_provider import get_provider
+    provider = get_provider(getattr(project, "tracker", "native") or "native")
+    config = {"tracker_type": getattr(project, "tracker", "native") or "native"}
+
+    task = await provider.create_task(getattr(project, "path", ""), config, title)
+    return {"task": task.__dict__}
+
+
+@router.patch("/{name}/tasks/{task_id}")
+async def update_task(
+    name: str,
+    task_id: str,
+    request: Request,
+    x_api_key: str | None = Header(None),
+) -> dict:
+    """Update task status."""
+    import json as _json
+    body = await request.json()
+    status = body.get("status", "done")
+
+    check_auth(request, x_api_key)
+    registry = request.app.state.registry
+    if not registry:
+        raise HTTPException(503, "Not configured")
+    project = registry.get(name)
+    if not project:
+        raise HTTPException(404, f"Project '{name}' not found")
+
+    from maggy.services.task_provider import get_provider
+    provider = get_provider(getattr(project, "tracker", "native") or "native")
+    config = {"tracker_type": getattr(project, "tracker", "native") or "native"}
+
+    task = await provider.update_task(getattr(project, "path", ""), config, task_id, status)
+    return {"task": task.__dict__}
+
+@router.patch("/{name}/config")
+async def update_project_config(
+    name: str,
+    request: Request,
+    x_api_key: str | None = Header(None),
+) -> dict:
+    """Update per-project config (tracker, enabled plugins)."""
+    import json as _json
+    body = await request.json()
+
+    check_auth(request, x_api_key)
+    registry = request.app.state.registry
+    if not registry:
+        raise HTTPException(503, "Not configured")
+    project = registry.get(name)
+    if not project:
+        raise HTTPException(404, f"Project '{name}' not found")
+
+    if "tracker" in body:
+        project.tracker = body["tracker"]
+    if "enabled_plugins" in body:
+        project.enabled_plugins = body["enabled_plugins"]
+
+    # Persist config update
+    registry._save() if hasattr(registry, "_save") else None
+
+    return {"ok": True, "tracker": getattr(project, "tracker", "native") or "native"}
+
 
 @router.delete("/{name}")
 async def remove_project(
