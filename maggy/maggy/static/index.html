@@ -20,15 +20,22 @@
         integrity="sha512-SzlrxWUlpfuzQ+pcUCosxcglQRNAq/DZjVsC0lE40xsADsfeQoEypE+enwcOiGjk/bSuGGKHEyjSoQ1zVisanQ=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
-    :root { --bg: #080b10; --surface: #0f131a; --border: #1e2636; --text: #d1d5db; --text-muted: #6b7280; --accent: #f97316; --accent-glow: rgba(249,115,22,0.15); --green: #22c55e; --red: #ef4444; --yellow: #eab308; }
-    body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
-    .sidebar-link { transition: all 0.15s ease; border-left: 2px solid transparent; }
-    .sidebar-link:hover { background: var(--surface); color: #e5e7eb; }
+    :root { --bg: #060912; --surface: rgba(15,19,26,0.85); --border: rgba(255,255,255,0.06); --text: #c9cdd4; --text-muted: #5e6570; --accent: #f97316; --accent-glow: rgba(249,115,22,0.12); --green: #22c55e; --red: #ef4444; --yellow: #eab308; }
+    * { box-sizing: border-box; }
+    body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, monospace; overflow: hidden; }
+    /* Glassmorphism */
+    .glass { background: rgba(15,19,26,0.7); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.05); border-radius: 0.5rem; }
+    .glass-sidebar { background: rgba(6,9,18,0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    .glass-card { background: rgba(15,19,26,0.6); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.04); border-radius: 0.5rem; }
+    .glass-input { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); border-radius: 0.375rem; color: var(--text); padding: 0.5rem 0.75rem; outline: none; transition: border-color 0.2s; }
+    .glass-input:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent-glow); }
+    .sidebar-link { transition: all 0.15s ease; border-left: 2px solid transparent; color: var(--text-muted); }
+    .sidebar-link:hover { background: rgba(249,115,22,0.05); color: #d1d5db; border-left-color: rgba(249,115,22,0.3); }
     .sidebar-link.active { background: var(--accent-glow); border-left-color: var(--accent); color: var(--accent); }
     .card { background: var(--surface); border: 1px solid var(--border); border-radius: 0.5rem; }
-    .btn { transition: all 0.15s ease; border-radius: 0.375rem; padding: 0.375rem 0.75rem; font-size: 0.8125rem; }
-    .btn-primary { background: var(--accent); color: white; } .btn-primary:hover { background: #ea580c; }
-    .btn-ghost { color: var(--text-muted); } .btn-ghost:hover { background: var(--surface); color: #e5e7eb; }
+    .btn { transition: all 0.15s ease; border-radius: 0.375rem; padding: 0.375rem 0.75rem; font-size: 0.8125rem; cursor: pointer; }
+    .btn-primary { background: var(--accent); color: white; border: none; } .btn-primary:hover { background: #ea580c; }
+    .btn-ghost { color: var(--text-muted); background: transparent; border: 1px solid transparent; } .btn-ghost:hover { background: rgba(255,255,255,0.04); color: #d1d5db; border-color: rgba(255,255,255,0.06); }
     pre { white-space: pre-wrap; word-break: break-word; }
     @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
     .shimmer-bar { background:linear-gradient(90deg,transparent,var(--accent),transparent); animation:shimmer 1.5s infinite; }
@@ -36,8 +43,8 @@
     .pulse-glow { animation: pulse-glow 2s infinite; }
     .chat-md h1,.chat-md h2,.chat-md h3 { font-weight:600; margin:0.5em 0 0.25em; }
     .chat-md h1 { font-size:1.1em; color:var(--accent); } .chat-md h2 { font-size:1em; color:#fff; }
-    .chat-md code { background:#1e2433; padding:1px 4px; border-radius:3px; font-size:0.9em; color:#6ee7b7; }
-    .chat-md pre { background:#1e2433; padding:8px; border-radius:6px; overflow-x:auto; margin:0.5em 0; }
+    .chat-md code { background:rgba(255,255,255,0.05); padding:1px 4px; border-radius:3px; font-size:0.9em; color:#fbbf24; }
+    .chat-md pre { background:rgba(255,255,255,0.04); padding:8px; border-radius:6px; overflow-x:auto; margin:0.5em 0; border: 1px solid var(--border); }
     .chat-md pre code { background:none; padding:0; }
     .chat-md ul,.chat-md ol { padding-left:1.5em; margin:0.25em 0; }
     .chat-md li { margin:2px 0; }
@@ -45,48 +52,51 @@
     .chat-md p { margin:0.25em 0; }
     .chat-md blockquote { border-left:3px solid var(--accent); padding-left:0.75em; color:#9ca3af; }
     .chat-md table { border-collapse:collapse; margin:0.5em 0; }
-    .chat-md th,.chat-md td { border:1px solid #374151; padding:4px 8px; font-size:0.85em; }
+    .chat-md th,.chat-md td { border:1px solid rgba(255,255,255,0.08); padding:4px 8px; font-size:0.85em; }
     .scroll-thin::-webkit-scrollbar { width: 4px; }
-    .scroll-thin::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .scroll-thin::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 2px; }
     .badge { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border-radius: 9999px; font-size: 0.6875rem; font-weight: 500; }
     .model-badge { background: rgba(249,115,22,0.15); color: var(--accent); border: 1px solid rgba(249,115,22,0.3); }
     .status-ok { color: var(--green); } .status-warn { color: var(--yellow); } .status-err { color: var(--red); }
     #project-search-results { max-height: 350px; overflow-y: auto; }
     #project-search-results::-webkit-scrollbar { width: 3px; }
-    #project-search-results::-webkit-scrollbar-thumb { background: var(--border); }
+    #project-search-results::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
+    .pane-content { padding: 1rem; height: 100%; overflow-y: auto; }
+    .pane-content::-webkit-scrollbar { width: 3px; }
+    .pane-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 2px; }
   </style>
 </head>
 <body class="h-screen flex overflow-hidden">
   <!-- Sidebar -->
-  <aside class="w-[220px] flex-shrink-0 border-r flex flex-col" style="background:var(--bg);border-color:var(--border)">
+  <aside class="w-[220px] flex-shrink-0 border-r flex flex-col glass-sidebar" style="border-color:var(--border)">
     <div class="px-4 py-3.5 flex items-center gap-2.5 border-b" style="border-color:var(--border)">
       <i class="fas fa-robot text-orange-500 text-lg"></i>
-      <span class="font-bold text-white text-sm">Maggy</span>
-      <span class="text-[10px] text-gray-600 ml-auto">v0.2</span>
+      <span class="font-bold text-white text-sm tracking-tight">Maggy</span>
+      <span class="text-[10px] text-gray-600 ml-auto font-mono">v0.2</span>
     </div>
-    <div class="px-3 py-2">
-      <button onclick="openProjectSearch()" class="w-full text-left btn btn-ghost flex items-center gap-2 text-xs py-1.5 px-2.5" style="font-size:0.75rem">
+    <div class="px-3 py-2.5">
+      <button onclick="openProjectSearch()" class="w-full text-left flex items-center gap-2 text-xs py-1.5 px-2.5 rounded-md glass-input" style="font-size:0.75rem;cursor:pointer">
         <i class="fas fa-search text-gray-500 text-[10px]"></i>
         <span class="flex-1 truncate" id="current-project-label">Select project...</span>
-        <kbd class="text-[9px] text-gray-600 ml-1">Cmd+K</kbd>
+        <kbd class="text-[9px] text-gray-600 ml-1 font-mono">⌘K</kbd>
       </button>
     </div>
     <nav class="flex-1 px-2 py-1 overflow-y-auto scroll-thin space-y-0.5">
-      <div class="text-[9px] text-gray-600 uppercase tracking-wider px-2.5 py-1.5">Work</div>
-      <a href="#" onclick="switchTab('chat')" data-tab="chat" class="sidebar-link active flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-terminal text-[11px] w-4 text-center"></i> Chat</a>
-      <a href="#" onclick="switchTab('inbox')" data-tab="inbox" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-list-check text-[11px] w-4 text-center"></i> Inbox</a>
-      <a href="#" onclick="switchTab('followed')" data-tab="followed" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-eye text-[11px] w-4 text-center"></i> Watching</a>
-      <a href="#" onclick="switchTab('progress')" data-tab="progress" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-bars-progress text-[11px] w-4 text-center"></i> Progress</a>
-      <div class="text-[9px] text-gray-600 uppercase tracking-wider px-2.5 py-2">Intel</div>
-      <a href="#" onclick="switchTab('competitors')" data-tab="competitors" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-chess text-[11px] w-4 text-center"></i> Competitors</a>
-      <a href="#" onclick="switchTab('process')" data-tab="process" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-chart-line text-[11px] w-4 text-center"></i> Insights</a>
-      <a href="#" onclick="switchTab('icpg')" data-tab="icpg" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-project-diagram text-[11px] w-4 text-center"></i> iCPG</a>
-      <div class="text-[9px] text-gray-600 uppercase tracking-wider px-2.5 py-2">System</div>
-      <a href="#" onclick="switchTab('memory')" data-tab="memory" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-brain text-[11px] w-4 text-center"></i> Memory</a>
-      <a href="#" onclick="switchTab('routing')" data-tab="routing" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-route text-[11px] w-4 text-center"></i> Models</a>
-      <a href="#" onclick="switchTab('budget')" data-tab="budget" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-wallet text-[11px] w-4 text-center"></i> Budget</a>
-      <a href="#" onclick="switchTab('forge')" data-tab="forge" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-hammer text-[11px] w-4 text-center"></i> Forge</a>
-      <a href="#" onclick="switchTab('settings')" data-tab="settings" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-sliders text-[11px] w-4 text-center"></i> Settings</a>
+      <div class="text-[9px] text-gray-600 uppercase tracking-widest px-2.5 pt-2 pb-1 font-mono">Work</div>
+      <a href="#" onclick="switchTab('chat')" data-tab="chat" class="sidebar-link active flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-terminal text-[11px] w-4 text-center opacity-60"></i> Chat</a>
+      <a href="#" onclick="switchTab('inbox')" data-tab="inbox" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-list-check text-[11px] w-4 text-center opacity-60"></i> Inbox</a>
+      <a href="#" onclick="switchTab('followed')" data-tab="followed" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-eye text-[11px] w-4 text-center opacity-60"></i> Watching</a>
+      <a href="#" onclick="switchTab('progress')" data-tab="progress" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-bars-progress text-[11px] w-4 text-center opacity-60"></i> Progress</a>
+      <div class="text-[9px] text-gray-600 uppercase tracking-widest px-2.5 pt-2 pb-1 font-mono">Intel</div>
+      <a href="#" onclick="switchTab('competitors')" data-tab="competitors" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-chess text-[11px] w-4 text-center opacity-60"></i> Competitors</a>
+      <a href="#" onclick="switchTab('process')" data-tab="process" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-chart-line text-[11px] w-4 text-center opacity-60"></i> Insights</a>
+      <a href="#" onclick="switchTab('icpg')" data-tab="icpg" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-project-diagram text-[11px] w-4 text-center opacity-60"></i> iCPG</a>
+      <div class="text-[9px] text-gray-600 uppercase tracking-widest px-2.5 pt-2 pb-1 font-mono">System</div>
+      <a href="#" onclick="switchTab('memory')" data-tab="memory" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-brain text-[11px] w-4 text-center opacity-60"></i> Memory</a>
+      <a href="#" onclick="switchTab('routing')" data-tab="routing" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-route text-[11px] w-4 text-center opacity-60"></i> Models</a>
+      <a href="#" onclick="switchTab('budget')" data-tab="budget" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-wallet text-[11px] w-4 text-center opacity-60"></i> Budget</a>
+      <a href="#" onclick="switchTab('forge')" data-tab="forge" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-hammer text-[11px] w-4 text-center opacity-60"></i> Forge</a>
+      <a href="#" onclick="switchTab('settings')" data-tab="settings" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-sliders text-[11px] w-4 text-center opacity-60"></i> Settings</a>
     </nav>
     <div class="px-3 py-2 border-t" style="border-color:var(--border)">
       <div id="sidebar-fatigue" class="text-[10px] text-gray-500 px-2">
@@ -96,7 +106,7 @@
   </aside>
   <!-- Main -->
   <div class="flex-1 flex flex-col overflow-hidden">
-    <header class="border-b px-5 py-2 flex items-center gap-3" style="background:var(--surface);border-color:var(--border)">
+    <header class="border-b px-5 py-2 flex items-center gap-3 glass" style="border-color:var(--border)">
       <div id="header-context" class="flex items-center gap-2 text-xs text-gray-400 flex-1">
         <span id="header-model" class="badge model-badge hidden"></span>
         <span id="header-blast" class="hidden text-gray-500"></span>
@@ -112,34 +122,34 @@
     </header>
     <main class="flex-1 overflow-hidden">
       <div id="pane-chat" class="h-full"><div class="flex items-center justify-center h-full text-gray-600 text-xs">Loading chat...</div></div>
-      <div id="pane-inbox" class="h-full hidden"></div>
-      <div id="pane-followed" class="h-full hidden"></div>
-      <div id="pane-progress" class="h-full hidden"></div>
-      <div id="pane-competitors" class="h-full hidden"></div>
-      <div id="pane-process" class="h-full hidden"></div>
-      <div id="pane-icpg" class="h-full hidden"></div>
-      <div id="pane-memory" class="h-full hidden"></div>
-      <div id="pane-routing" class="h-full hidden"></div>
-      <div id="pane-budget" class="h-full hidden"></div>
-      <div id="pane-forge" class="h-full hidden"></div>
-      <div id="pane-settings" class="h-full hidden"></div>
+      <div id="pane-inbox" class="h-full p-4 hidden"></div>
+      <div id="pane-followed" class="h-full p-4 hidden"></div>
+      <div id="pane-progress" class="h-full p-4 hidden"></div>
+      <div id="pane-competitors" class="h-full p-4 hidden"></div>
+      <div id="pane-process" class="h-full p-4 hidden"></div>
+      <div id="pane-icpg" class="h-full p-4 hidden"></div>
+      <div id="pane-memory" class="h-full p-4 hidden"></div>
+      <div id="pane-routing" class="h-full p-4 hidden"></div>
+      <div id="pane-budget" class="h-full p-4 hidden"></div>
+      <div id="pane-forge" class="h-full p-4 hidden"></div>
+      <div id="pane-settings" class="h-full p-4 hidden"></div>
     </main>
   </div>
   <!-- Project Search Modal -->
-  <div id="project-search-overlay" class="hidden fixed inset-0 z-50 flex items-start justify-center pt-[15vh]" style="background:rgba(0,0,0,0.6)">
-    <div class="card w-[480px] max-w-[90vw] p-3 shadow-2xl">
-      <div class="flex items-center gap-2 px-2">
+  <div id="project-search-overlay" class="hidden fixed inset-0 z-50 flex items-start justify-center pt-[15vh]" style="background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)">
+    <div class="glass-card w-[480px] max-w-[90vw] p-4 shadow-2xl">
+      <div class="flex items-center gap-2.5 mb-3">
         <i class="fas fa-search text-gray-500 text-xs"></i>
         <input id="project-search-input" type="text" placeholder="Search projects, tasks, or jump to..."
                class="flex-1 bg-transparent text-sm outline-none py-2 text-white placeholder-gray-600"
                oninput="filterProjects()" onkeydown="handleProjectSearchKey(event)" autofocus />
-        <kbd class="text-[10px] text-gray-600">esc</kbd>
+        <kbd class="text-[10px] text-gray-600 font-mono">esc</kbd>
       </div>
-      <div id="project-search-results" class="mt-2 text-xs"></div>
+      <div id="project-search-results" class="text-xs space-y-0.5"></div>
     </div>
   </div>
   <!-- Drawer -->
-  <div id="drawer" class="fixed top-0 right-0 h-full w-[40rem] max-w-full card border-l p-4 overflow-y-auto translate-x-full transition-transform z-40" style="border-color:var(--border)">
+  <div id="drawer" class="fixed top-0 right-0 h-full w-[40rem] max-w-full glass-card border-l p-4 overflow-y-auto translate-x-full transition-transform z-40" style="border-color:var(--border);border-radius:0">
     <div class="flex items-center justify-between mb-3">
       <h3 id="drawer-title" class="text-sm font-bold text-white">Task</h3>
       <button onclick="closeDrawer()" class="text-gray-400 hover:text-white text-lg"><i class="fas fa-xmark"></i></button>
@@ -148,40 +158,44 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="/static/app.js?v=12"></script>
+  <script src="/static/app.js?v=13"></script>
   <script>
-    // Quick keyboard shortcuts
     document.addEventListener('keydown', function(e) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault(); openProjectSearch();
       }
-      if (e.key === 'Escape') {
-        closeProjectSearch(); closeDrawer();
-      }
+      if (e.key === 'Escape') { closeProjectSearch(); closeDrawer(); }
     });
+
     function openProjectSearch() {
-      document.getElementById('project-search-overlay').classList.remove('hidden');
-      document.getElementById('project-search-input').focus();
+      var ov = document.getElementById('project-search-overlay');
+      ov.classList.remove('hidden');
+      var inp = document.getElementById('project-search-input');
+      inp.value = ''; inp.focus();
       filterProjects();
     }
     function closeProjectSearch() {
       document.getElementById('project-search-overlay').classList.add('hidden');
     }
     function filterProjects() {
-      var q = document.getElementById('project-search-input').value.toLowerCase();
-      var items = window._projectList || [];
+      var q = (document.getElementById('project-search-input').value || '').toLowerCase();
+      var list = window._projectList || [];
       var html = '';
-      var filtered = q ? items.filter(function(i) { return i.toLowerCase().includes(q); }) : items;
-      for (var i = 0; i < Math.min(filtered.length, 12); i++) {
-        html += '<div class="px-3 py-2 hover:bg-gray-800 rounded cursor-pointer flex items-center gap-2" onclick="jumpToProject(\'' + filtered[i].replace(/'/g, "\\'") + '\')"><i class="fas fa-folder text-gray-500 text-[10px]"></i> ' + filtered[i] + '</div>';
+      if (!list.length) {
+        html = '<div class="px-3 py-3 text-gray-500">No projects configured. Add one in Settings.</div>';
+      } else {
+        var filtered = q ? list.filter(function(i) { return i.toLowerCase().includes(q); }) : list;
+        for (var i = 0; i < Math.min(filtered.length, 12); i++) {
+          html += '<div class="px-3 py-2 hover:bg-white/5 rounded cursor-pointer flex items-center gap-2.5 transition-colors" onclick="jumpToProject(\'' + filtered[i].replace(/'/g, "\\'") + '\')"><i class="fas fa-folder text-gray-600 text-[10px]"></i><span>' + filtered[i] + '</span></div>';
+        }
+        if (!filtered.length) html = '<div class="px-3 py-3 text-gray-600">No matches for "' + q + '"</div>';
       }
-      if (!filtered.length) html = '<div class="px-3 py-2 text-gray-600">No matches</div>';
       document.getElementById('project-search-results').innerHTML = html;
     }
     function handleProjectSearchKey(e) {
-      if (e.key === 'Escape') closeProjectSearch();
+      if (e.key === 'Escape') { closeProjectSearch(); return; }
       if (e.key === 'Enter') {
-        var first = document.querySelector('#project-search-results div');
+        var first = document.querySelector('#project-search-results div.cursor-pointer, #project-search-results div[onclick]');
         if (first) first.click();
       }
     }
@@ -193,12 +207,15 @@
     function updateCurrentProject(name) {
       document.getElementById('current-project-label').textContent = name || 'Select project...';
     }
+
     window.addEventListener('load', function() {
       fetch('/api/projects').then(function(r){return r.json()}).then(function(data){
-        var projects = (data.projects||[]).map(function(p){return p.name});
+        var projects = (data.projects||[]).map(function(p){return typeof p === 'string' ? p : (p.name || p.key || '')}).filter(Boolean);
         window._projectList = projects;
         if (projects.length) updateCurrentProject(projects[0]);
-      }).catch(function(){});
+      }).catch(function(){
+        window._projectList = [];
+      });
     });
   </script>
 </body>
