@@ -64,28 +64,115 @@ class TestRun:
 
 
 class ProjectDetector:
-    """Auto-detect project type to run appropriate tests."""
+    """Auto-detect project type AND architecture to generate domain-specific benchmarks."""
 
     @staticmethod
     def detect(project_dir: str) -> dict:
         root = Path(project_dir).expanduser()
-        info = {"type": "unknown", "test_cmd": [], "bench_cmd": [], "source_dir": "."}
+        info = {
+            "type": "unknown", "arch": "unknown",
+            "test_cmd": [], "bench_cmd": [],
+            "source_dir": ".", "bench_specs": [],
+            "name": root.name,
+        }
 
+        # Python projects
         if (root / "pyproject.toml").exists():
             info["type"] = "python"
             info["test_cmd"] = ["pytest", "-x", "--tb=short", "-v"]
-            info["bench_cmd"] = ["pytest", "--benchmark-only"]
             info["source_dir"] = "src" if (root / "src").exists() else "."
+
+            # Architecture detection
+            info = ProjectDetector._detect_python_arch(root, info)
+
+        # TypeScript/JS projects
         elif (root / "package.json").exists():
             pkg = _read_json(root / "package.json")
             deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
             info["type"] = "typescript"
             cmd = ["npx", "vitest", "run"] if "vitest" in deps else ["npx", "jest"]
             info["test_cmd"] = cmd
-            info["bench_cmd"] = cmd + ["--", "--bench"]
             info["source_dir"] = "src" if (root / "src").exists() else "."
 
+            # Architecture detection
+            info = ProjectDetector._detect_ts_arch(root, info, deps)
+
         return info
+
+    @staticmethod
+    @staticmethod
+    def _detect_python_arch(root, info):
+        """Detect Python project architecture from code structure."""
+        src = root / info["source_dir"]
+        has_api = bool(list(_safe_rglob(src, "routes*.py")) + list(_safe_rglob(src, "api/**/*.py")))
+        has_cli = bool(list(src.rglob("cli*.py")) + list(src.rglob("cli/**/*.py")))
+        has_ai = bool(list(src.rglob("ai_client*.py")) + list(src.rglob("model_router*.py")))
+        has_db = bool(list(src.rglob("models/**/*.py")) + list(src.rglob("migrations/**/*.py")))
+        benches = []
+        if has_api:
+            info["arch"] = "api_server"
+            benches += [
+                {"name": "endpoint_latency", "desc": "P95 API response time (ms)", "target": "<200ms"},
+                {"name": "startup_time", "desc": "Server ready for requests", "target": "<5s"},
+                {"name": "memory_baseline", "desc": "RSS memory at idle", "target": "<200MB"},
+            ]
+        if has_ai:
+            info["arch"] = "ai_pipeline" if not info.get("arch") else info.get("arch", "") + "+ai"
+            benches += [
+                {"name": "routing_decision_latency", "desc": "Classifier prompt->tier latency (ms)", "target": "<500ms"},
+                {"name": "model_response_time", "desc": "Query->response end-to-end (ms)", "target": "<5000ms"},
+                {"name": "fatigue_accuracy", "desc": "Routing accuracy under fatigue >0.6", "target": ">90% correct"},
+            ]
+        if has_cli:
+            info["arch"] = "cli_tool" if not info.get("arch") else info.get("arch", "") + "+cli"
+            benches += [
+                {"name": "cli_startup", "desc": "Time to import + print help", "target": "<500ms"},
+                {"name": "command_latency", "desc": "Typical command time", "target": "<2s"},
+            ]
+        if has_db:
+            benches += [{"name": "query_latency", "desc": "Typical query time", "target": "<50ms"}]
+        if not benches:
+            info["arch"] = "generic_python"
+            benches = [
+                {"name": "import_time", "desc": "Time to import package", "target": "<1s"},
+                {"name": "test_suite_speed", "desc": "Full test suite time", "target": "<5min"},
+            ]
+        info["bench_specs"] = benches
+        return info
+
+    @staticmethod
+    def _detect_ts_arch(root: Path, info: dict, deps: dict) -> dict:
+        """Detect TypeScript project architecture and generate benchmarks."""
+        if any(d in str(deps).lower() for d in ["next", "react", "vue", "svelte"]):
+            info["arch"] = "frontend_app"
+            info["bench_specs"] = [
+                {"name": "build_time", "desc": "Production build duration",
+                 "target": "<2min", "method": "time npm run build"},
+                {"name": "bundle_size", "desc": "Total JS bundle size (gzip)",
+                 "target": "<200KB", "method": "du -sh .next/static or dist/"},
+                {"name": "lighthouse_perf", "desc": "Lighthouse performance score",
+                 "target": ">90", "method": "lighthouse-ci"},
+                {"name": "first_contentful_paint", "desc": "FCP in production",
+                 "target": "<1.5s", "method": "lighthouse or web-vitals"},
+            ]
+        elif any(d in str(deps).lower() for d in ["express", "fastify", "hono", "koa"]):
+            info["arch"] = "api_server"
+            info["bench_specs"] = [
+                {"name": "endpoint_latency", "desc": "API response time p95",
+                 "target": "<100ms", "method": "autocannon or k6"},
+                {"name": "throughput", "desc": "Requests per second",
+                 "target": ">1000 req/s", "method": "autocannon -c 100 -d 30"},
+            ]
+
+        return info
+
+
+def _read_toml(path: Path) -> dict:
+    try:
+        import tomllib
+        return tomllib.loads(path.read_text()) if path.exists() else {}
+    except Exception:
+        return {}
 
 
 class BenchmarkRunner:
@@ -285,6 +372,7 @@ class E2ETestKit:
         )
 
         info = self._detector.detect(self._dir)
+        run.benchmark_score = 0.0  # Will be set by benchmark results
 
         # 1. E2E tests
         try:
