@@ -9,9 +9,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [6.25.0] - 2026-05-17
 
 ### Added
+- **E2E TestKit Plugin** — benchmark, drift detection, intent bug analysis for any project
+- **Context-aware benchmark generation** — auto-detects project architecture and generates domain-specific benchmarks
+- **Drift detection** — AI compares spec vs implementation, scores divergence
+- **Intent bug detection** — finds flaws in original design assumptions
+- **Plugin system upgrades** — router auto-registration, heartbeat jobs from manifests
+- **Provider plugins extracted** — GitHub, Asana moved from core to plugins
 - **Grok (xAI) integration** — 10th model tier via OpenAI-compatible API at `api.x.ai/v1`
 - **10-tier routing**: Qwen3 → Gemini FL → DeepSeek Flash → DeepSeek Pro → Gemini Flash → Gemini CLI → Kimi → Grok → Gemini Pro Search → Codex → Claude
-- **Competitor Intelligence Dashboard** — per-project competitor tracking (maggy, chessiega, edubites)
+- **Competitor Intelligence Dashboard** — per-project competitor tracking (maggy, chess, edtech)
 - **CompetitorIntel service**: auto-discovery, move tracking, threat levels, AI briefings
 - **`/api/competitor-intel/{project}`**: competitors, moves, briefing, scan, discover endpoints
 - **Usage-aware model routing**: per-model daily budget caps, auto-demote at 50%/80% thresholds
@@ -87,7 +93,7 @@ The build-in-public plugin works standalone via `~/.claude/hooks/plugin-trigger`
 - **Autonomous storyteller** — notices work (PR merged, feature shipped, review passed), extracts narrative arc, publishes without asking
 - **Multi-channel** — per-channel voice: LinkedIn (professional, teaches, 3000 chars) + X (sharp, punchy, 280 chars)
 - **AI-powered synthesis** — DeepSeek Flash generates channel-native narratives from event data
-- **Auto-redaction** — `anonymize.yaml` replaces sensitive names (zenloop→"a CX SaaS"), strips revenue/user data via regex
+- **Auto-redaction** — `anonymize.yaml` replaces sensitive names (company names → generic descriptors), strips revenue/user data via regex
 - **Buffer API integration** — multi-profile scheduling per channel with fallback to `posts.jsonl`
 - **Playwright screenshots** — captures hero screenshots of deployed features
 - **Rate limiting** — configurable max posts/day per channel
