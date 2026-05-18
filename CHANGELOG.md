@@ -24,6 +24,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [6.27.0] - 2026-05-19
+
+### Added
+- **Auto-isolation for concurrent sessions** — second Claude Code session in same project auto-provisions Polyphony Docker container workspace, preventing file/git conflicts
+- **`polyphony-auto-isolate` hook** — SessionStart detection of sibling sessions, workspace provisioning
+
 ## [6.26.0] - 2026-05-19
 
 ### Added
