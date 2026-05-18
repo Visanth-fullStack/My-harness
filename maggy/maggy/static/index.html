@@ -7,8 +7,8 @@
   <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
     script-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net 'unsafe-inline';
-    style-src 'self' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com 'unsafe-inline';
-    font-src 'self' https://cdnjs.cloudflare.com https://use.fontawesome.com https://ka-f.fontawesome.com data:;
+    style-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net 'unsafe-inline';
+    font-src 'self' https://cdn.jsdelivr.net data:;
     connect-src 'self';
     img-src 'self' data:;
     frame-ancestors 'none';
@@ -16,8 +16,7 @@
   " />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
-        integrity="sha512-SzlrxWUlpfuzQ+pcUCosxcglQRNAq/DZjVsC0lE40xsADsfeQoEypE+enwcOiGjk/bSuGGKHEyjSoQ1zVisanQ=="
+        href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.1/css/all.min.css"
         crossorigin="anonymous" referrerpolicy="no-referrer" />
   <style>
     :root { --bg: #060912; --surface: rgba(15,19,26,0.85); --border: rgba(255,255,255,0.06); --text: #c9cdd4; --text-muted: #5e6570; --accent: #f97316; --accent-glow: rgba(249,115,22,0.12); --green: #22c55e; --red: #ef4444; --yellow: #eab308; }
@@ -200,7 +199,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-  <script src="/static/app.js?v=14"></script>
+  <script src="/static/app.js?v=15"></script>
   <script>
     document.addEventListener('keydown', function(e) {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {

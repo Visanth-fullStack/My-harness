@@ -1070,8 +1070,9 @@ async function streamChatResponse(message, el) {
         }
         if (data.type === 'error') { streamEl.innerHTML = `<span class="text-red-400">${esc(data.content)}</span>`; continue; }
         if (data.type === 'tool_use' && toolsEl) {
-          const tool = data.tool || data.content || 'tool';
-          toolsEl.innerHTML += `<div class="text-[10px] text-gray-500"><i class="fas fa-wrench text-orange-400/50 mr-1"></i>${esc(tool)}</div>`;
+          var tool = data.tool || data.content || 'tool';
+          var toolInput = data.input ? JSON.stringify(data.input).substring(0, 200) : '';
+          toolsEl.innerHTML += '<div class="card p-1.5 my-1 cursor-pointer" onclick="var d=this.querySelector(\'.tool-detail\');if(d)d.classList.toggle(\'hidden\')"><div class="flex items-center gap-1.5 text-[10px] text-gray-500"><i class="fas fa-wrench text-orange-400/50"></i><span class="text-orange-400/60">' + esc(tool) + '</span><i class="fas fa-chevron-down text-[7px] ml-auto text-gray-600"></i></div><div class="tool-detail hidden mt-1 p-1 text-[9px] font-mono text-gray-600 truncate">' + esc(toolInput) + '</div></div>';
           el.scrollTop = el.scrollHeight;
           continue;
         }
