@@ -1773,6 +1773,32 @@ function updateHeartbeat() {
 setInterval(updateHeartbeat, 30000);
 updateHeartbeat();
 
+
+// ── Multi-tab chat ─────────────────────────────────────────────────────
+var _chatTabs = [];
+var _activeChatTab = null;
+
+function openChatTab(sessionId, label) {
+  // Set as active
+  CHAT_SESSION_ID = sessionId;
+  loadChatMessages(sessionId);
+  // Update tab bar
+  updateChatTabs(label);
+}
+
+function updateChatTabs(label) {
+  var container = document.getElementById('chat-tabs');
+  if (!container) return;
+  if (!_activeChatTab || _activeChatTab !== CHAT_SESSION_ID) {
+    _activeChatTab = CHAT_SESSION_ID;
+    var tab = document.createElement('span');
+    tab.className = 'text-[10px] px-2 py-1 rounded bg-gray-800 text-gray-300 cursor-pointer hover:bg-gray-700 flex items-center gap-1';
+    tab.innerHTML = '<i class=\'fas fa-circle text-[6px] text-green-400\'></i>' + (label || 'Chat');
+    tab.onclick = function() { CHAT_SESSION_ID = _activeChatTab; loadChatMessages(_activeChatTab); };
+    container.appendChild(tab);
+  }
+}
+
 // ── Init ────────────────────────────────────────────────────────────────
 async function loadAll() {
   try {

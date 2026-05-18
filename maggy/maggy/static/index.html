@@ -8,7 +8,7 @@
     default-src 'self';
     script-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net 'unsafe-inline';
     style-src 'self' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com 'unsafe-inline';
-    font-src 'self' https://cdnjs.cloudflare.com https://use.fontawesome.com data:;
+    font-src 'self' https://cdnjs.cloudflare.com https://use.fontawesome.com https://ka-f.fontawesome.com data:;
     connect-src 'self';
     img-src 'self' data:;
     frame-ancestors 'none';
@@ -81,9 +81,9 @@
         <kbd class="text-[9px] text-gray-600 ml-1 font-mono">⌘K</kbd>
       </button>
       <div id="sidebar-active-projects" class="space-y-0.5"></div>
-      <button onclick="openNewProject()" class="w-full text-left flex items-center gap-2 text-xs py-1.5 px-2.5 rounded-md hover:bg-orange-500/10 text-gray-500 hover:text-orange-400 transition-colors" style="font-size:0.75rem">
+      <button onclick="newChatSession()" class="w-full text-left flex items-center gap-2 text-xs py-1.5 px-2.5 rounded-md hover:bg-orange-500/10 text-gray-500 hover:text-orange-400 transition-colors" style="font-size:0.75rem">
         <i class="fas fa-plus text-[10px]"></i>
-        <span>New Project</span>
+        <span>New Session</span>
       </button>
     </div>
     <nav class="flex-1 px-2 py-1 overflow-y-auto scroll-thin space-y-0.5">
@@ -150,7 +150,7 @@
     </main>
   </div>
   <!-- Project Search Modal -->
-  <div id="project-search-overlay" class="hidden fixed inset-0 z-50 flex items-start justify-center pt-[15vh]" style="background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)">
+  <div id="project-search-overlay" class="hidden fixed inset-0 z-50 flex items-start justify-center pt-[15vh]" onclick="if(event.target===this)closeProjectSearch()" style="background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)">
     <div class="glass-card w-[480px] max-w-[90vw] p-4 shadow-2xl">
       <div class="flex items-center gap-2.5 mb-3">
         <i class="fas fa-search text-gray-500 text-xs"></i>
@@ -368,7 +368,7 @@
     function renderActiveProjects() {
       var recent = JSON.parse(localStorage.getItem('maggy-recent-projects') || '[]');
       var all = window._projectList || [];
-      var active = recent.filter(function(p) { return all.indexOf(p) >= 0; }).slice(0, 4);
+      var active = recent.filter(function(p) { return all.indexOf(p) >= 0; }).slice(0, 5);
       var el = document.getElementById('sidebar-active-projects');
       if (!el || !active.length) return;
       var html = '';
@@ -380,6 +380,8 @@
     }
 
     window.addEventListener('load', function() {
+      setTimeout(loadChat, 300);
+      getTrackerStatus();
       getTrackerStatus();
       fetch('/api/projects').then(function(r){return r.json()}).then(function(data){
         var projects = (data.projects||[]).map(function(p){return typeof p === 'string' ? p : (p.name || p.key || '')}).filter(Boolean);
