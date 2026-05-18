@@ -8,7 +8,7 @@
     default-src 'self';
     script-src 'self' https://cdn.tailwindcss.com https://cdn.jsdelivr.net 'unsafe-inline';
     style-src 'self' https://cdn.tailwindcss.com https://cdnjs.cloudflare.com 'unsafe-inline';
-    font-src 'self' https://cdnjs.cloudflare.com data:;
+    font-src 'self' https://cdnjs.cloudflare.com https://use.fontawesome.com data:;
     connect-src 'self';
     img-src 'self' data:;
     frame-ancestors 'none';
@@ -36,7 +36,7 @@
     .btn { transition: all 0.15s ease; border-radius: 0.375rem; padding: 0.375rem 0.75rem; font-size: 0.8125rem; cursor: pointer; }
     .btn-primary { background: var(--accent); color: white; border: none; } .btn-primary:hover { background: #ea580c; }
     .btn-ghost { color: var(--text-muted); background: transparent; border: 1px solid transparent; } .btn-ghost:hover { background: rgba(255,255,255,0.04); color: #d1d5db; border-color: rgba(255,255,255,0.06); }
-    pre { white-space: pre-wrap; word-break: break-word; }
+    #chat-ghost { pointer-events: none; } pre { white-space: pre-wrap; word-break: break-word; }
     @keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
     .shimmer-bar { background:linear-gradient(90deg,transparent,var(--accent),transparent); animation:shimmer 1.5s infinite; }
     @keyframes pulse-glow { 0%,100%{box-shadow:0 0 4px var(--accent-glow)} 50%{box-shadow:0 0 12px rgba(249,115,22,0.3)} }

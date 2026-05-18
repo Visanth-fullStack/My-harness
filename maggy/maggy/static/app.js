@@ -907,18 +907,16 @@ function getSuggestion() {
 }
 
 function updateGhostText() {
-  const input = document.getElementById('chat-input');
-  const ghost = document.getElementById('chat-ghost');
+  var input = document.getElementById('chat-input');
+  var ghost = document.getElementById('chat-ghost');
   if (!input || !ghost) return;
-  const val = input.value;
-  if (val.length > 0 && _currentSuggestion.toLowerCase().startsWith(val.toLowerCase())) {
-    ghost.textContent = _currentSuggestion;
-    ghost.style.color = '';
-  } else if (val.length === 0 && _currentSuggestion) {
-    ghost.textContent = _currentSuggestion;
-    ghost.style.color = '';
+  var val = input.value;
+  if (val.length > 0 && _currentSuggestion && _currentSuggestion.toLowerCase().startsWith(val.toLowerCase())) {
+    ghost.textContent = val + _currentSuggestion.slice(val.length);
+    ghost.style.display = '';
   } else {
     ghost.textContent = '';
+    ghost.style.display = 'none';
   }
 }
 
