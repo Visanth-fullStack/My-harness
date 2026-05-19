@@ -114,10 +114,14 @@
       <a href="#" onclick="switchTab('inbox')" data-tab="inbox" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-list-check text-[11px] w-4 text-center opacity-60"></i> Inbox</a>
       <a href="#" onclick="switchTab('followed')" data-tab="followed" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-eye text-[11px] w-4 text-center opacity-60"></i> Watching</a>
       <a href="#" onclick="switchTab('progress')" data-tab="progress" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-bars-progress text-[11px] w-4 text-center opacity-60"></i> Progress</a>
-      <div class="text-[9px] text-gray-600 uppercase tracking-widest px-2.5 pt-2 pb-1 font-mono">Intel</div>
-      <a href="#" onclick="switchTab('competitors')" data-tab="competitors" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-chess text-[11px] w-4 text-center opacity-60"></i> Competitors</a>
-      <a href="#" onclick="switchTab('process')" data-tab="process" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-chart-line text-[11px] w-4 text-center opacity-60"></i> Insights</a>
+      <div class="text-[9px] text-gray-600 uppercase tracking-widest px-2.5 pt-2 pb-1 font-mono">
+        <span>Project</span>
+        <span id="sidebar-project-label" class="text-gray-500 font-normal ml-1 lowercase">—</span>
+      </div>
       <a href="#" onclick="switchTab('icpg')" data-tab="icpg" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-project-diagram text-[11px] w-4 text-center opacity-60"></i> iCPG</a>
+      <a href="#" onclick="switchTab('competitors')" data-tab="competitors" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-chess text-[11px] w-4 text-center opacity-60"></i> Competitors</a>
+      <div class="text-[9px] text-gray-600 uppercase tracking-widest px-2.5 pt-2 pb-1 font-mono">Intel</div>
+      <a href="#" onclick="switchTab('process')" data-tab="process" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-chart-line text-[11px] w-4 text-center opacity-60"></i> Insights</a>
       <div class="text-[9px] text-gray-600 uppercase tracking-widest px-2.5 pt-2 pb-1 font-mono">System</div>
       <a href="#" onclick="switchTab('memory')" data-tab="memory" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-brain text-[11px] w-4 text-center opacity-60"></i> Memory</a>
       <a href="#" onclick="switchTab('routing')" data-tab="routing" class="sidebar-link flex items-center gap-2.5 px-3 py-1.5 text-xs rounded-r"><i class="fas fa-route text-[11px] w-4 text-center opacity-60"></i> Models</a>
@@ -330,6 +334,8 @@
     }
     function updateCurrentProject(name) {
       document.getElementById('current-project-label').textContent = name || 'Select project...';
+      var sl = document.getElementById('sidebar-project-label');
+      if (sl) sl.textContent = name ? '· ' + name : '—';
       // Track as recently active
       if (name) {
         var recent = JSON.parse(localStorage.getItem('maggy-recent-projects') || '[]');
