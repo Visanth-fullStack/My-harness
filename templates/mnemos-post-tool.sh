@@ -1,40 +1,52 @@
 #!/bin/bash
-# Mnemos PostToolUse Hook — logs tool outcomes + auto-feeds token signal.
+# Mnemos PostToolUse Hook — logs tool outcomes + periodic auto-node creation.
 #
-# 1. Logs success/failure signal to .mnemos/signals.jsonl (error density)
-# 2. If fatigue.json is stale (>60s), estimates context usage from JSONL
+# 1. Logs success/failure signal to .mnemos/signals.jsonl
+# 2. Detects git commits → creates ResultNode immediately
+# 3. Every 25 tool calls → auto-creates nodes from recent activity
+# 4. Updates fatigue.json if stale
 #
-# Receives JSON on stdin with tool_name, tool_input, tool_response.
-# Install: add to .claude/settings.json under hooks.PostToolUse
-# Timeout: 1 second max — never blocks
+# No set -euo pipefail: hook scripts must be defensive, not strict.
+# Timeout: 3 seconds max
 
-# Skip if no .mnemos directory
 if [ ! -d ".mnemos" ]; then
     exit 0
 fi
 
-# Read hook input from stdin
-HOOK_INPUT=$(cat)
+HOOK_INPUT=$(cat 2>/dev/null || true)
 
 if [ -z "$HOOK_INPUT" ]; then
     exit 0
 fi
 
-# Log signal + update fatigue.json if stale
+# Write to temp file to avoid shell escaping issues with nested JSON
+TMPFILE=$(mktemp /tmp/mnemos-post-XXXXXX.json 2>/dev/null || echo "/tmp/mnemos-post-$$.json")
+echo "$HOOK_INPUT" > "$TMPFILE" 2>/dev/null
+
 python3 -c "
 import json, sys, time, os, glob
+from pathlib import Path
 
+tmpfile = sys.argv[1]
 try:
-    data = json.loads('''$(echo "$HOOK_INPUT" | sed "s/'/'\\\\''/g")''')
+    with open(tmpfile) as f:
+        data = json.load(f)
 except:
     sys.exit(0)
+finally:
+    try:
+        os.unlink(tmpfile)
+    except:
+        pass
 
 tool = data.get('tool_name', '')
 tool_input = data.get('tool_input', {})
 response = data.get('tool_response', {})
 
 # Extract file path
-fp = tool_input.get('file_path', '') or tool_input.get('path', '')
+fp = ''
+if isinstance(tool_input, dict):
+    fp = tool_input.get('file_path', '') or tool_input.get('path', '')
 
 # Determine success
 success = True
@@ -60,6 +72,31 @@ os.makedirs('.mnemos', exist_ok=True)
 with open('.mnemos/signals.jsonl', 'a') as f:
     f.write(json.dumps(signal) + '\n')
 
+# ─── Auto-node creation ───
+
+mnemos_dir = Path('.mnemos')
+
+try:
+    from mnemos.auto_nodes import (
+        detect_git_commit, create_commit_node,
+        should_run, run_auto_add,
+    )
+
+    # Immediate: detect git commits
+    resp_str = response if isinstance(response, str) else json.dumps(response)
+    commit_msg = detect_git_commit(tool, tool_input, resp_str)
+    if commit_msg:
+        create_commit_node(mnemos_dir, commit_msg)
+
+    # Periodic: every 25 calls, scan and create nodes
+    if should_run(mnemos_dir):
+        run_auto_add(mnemos_dir)
+
+except ImportError:
+    pass
+except Exception:
+    pass
+
 # ─── Auto-feed token signal from JSONL if fatigue.json is stale ───
 
 fatigue_path = '.mnemos/fatigue.json'
@@ -67,24 +104,18 @@ stale = True
 try:
     with open(fatigue_path) as f:
         fd = json.load(f)
-    # Fresh if updated within last 60 seconds (statusline is feeding it)
     if time.time() - fd.get('timestamp', 0) < 60:
         stale = False
 except:
     pass
 
 if stale:
-    # Find the most recent session JSONL
     home = os.path.expanduser('~')
     cwd = os.getcwd()
-    # Claude Code project hash: path with / replaced by -
     project_key = cwd.replace('/', '-')
-    if project_key.startswith('-'):
-        pass  # expected
     project_dir = os.path.join(home, '.claude', 'projects', project_key)
 
     if not os.path.isdir(project_dir):
-        # Try parent directories (Claude Code may use git root)
         for parent in [os.path.dirname(cwd), os.path.dirname(os.path.dirname(cwd))]:
             pk = parent.replace('/', '-')
             pd = os.path.join(home, '.claude', 'projects', pk)
@@ -98,13 +129,10 @@ if stale:
             key=os.path.getmtime, reverse=True
         )
         if jsonl_files:
-            # Read the last line of the most recent JSONL
             with open(jsonl_files[0], 'rb') as f:
-                # Seek to end, scan backwards for last newline
                 f.seek(0, 2)
                 pos = f.tell()
                 if pos > 0:
-                    # Read last 8KB (enough for one JSON entry)
                     read_size = min(8192, pos)
                     f.seek(pos - read_size)
                     chunk = f.read().decode('utf-8', errors='replace')
@@ -117,10 +145,7 @@ if stale:
                         cache_read = usage.get('cache_read_input_tokens', 0)
                         cache_create = usage.get('cache_creation_input_tokens', 0)
                         total_in_context = input_tok + cache_read + cache_create
-                        # Opus/Sonnet context window = 200k
                         context_limit = 200000
-                        # JSONL tokens overestimate actual context by ~25%
-                        # due to cache overhead. Apply correction factor.
                         correction = 0.75
                         used_pct = min(100.0, (total_in_context * correction / context_limit) * 100)
                         fatigue_data = {
@@ -135,7 +160,10 @@ if stale:
                         with open(fatigue_path, 'w') as f:
                             json.dump(fatigue_data, f)
     except:
-        pass  # Best effort — don't block the hook
-"
+        pass
+" "$TMPFILE" 2>/dev/null
+
+# Clean up temp file if python didn't
+rm -f "$TMPFILE" 2>/dev/null
 
 exit 0
