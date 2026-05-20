@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [6.28.0] - 2026-05-20
+
+### Added
+- **Icons-only sidebar** — 52px compact sidebar with JS-positioned tooltips (z-index 9999)
+- **CLI commands in chat** — `ls`, `cd`, `pwd`, `git`, `grep`, `find`, `tree` etc. via `/api/shell/exec`
+- **Shell sandboxing** — allowlist + blocklist with 10s timeout, 8KB output cap
+- **Slash commands** — `/mnemos`, `/icpg`, `/competitors`, `/budget`, `/routing`, `/progress`, `/forge`, `/status`, `/plan`
+- **Self-healing command system** — Levenshtein fuzzy matching for unknown commands ("did you mean...")
+- **Known programs list** — 80+ programs (vim, docker, python, etc.) show "use local terminal" instead of crashing
+- **Command-like input detection** — `_looksLikeCommand()` heuristic intercepts mistyped commands before AI chat
+- **Compact working indicator** — single-line joke rotation with "Working..." label
+
+### Fixed
+- **`/routing` data parsing** — correctly parses `list[dict]` heatmap grouped by model (was showing numbered indices)
+- **`/mnemos` and `/status`** — use actual API fields (`total_memories`, `active_count`) instead of nonexistent `fatigue_score`
+- **Unknown slash commands** — fuzzy-match suggestions instead of bare "Unknown command" error
+- **`vim` crash** — blocked programs no longer fall through to AI chat causing API 400
+
+### Changed
+- **Default-collapsed projects** — inverted expand tracking (`maggy-expanded` localStorage key)
+- **Sidebar tooltips** — switched from CSS `::after` pseudo-elements to JS-positioned fixed element (fixes z-index clipping)
+
+---
+
 ## [6.26.0] - 2026-05-17
 
 ### Added
