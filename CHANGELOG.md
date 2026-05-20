@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [6.29.0] - 2026-05-20
+
+### Added
+- **In-browser file editor** — `vim`, `edit`, `nano`, `code` open files in editor tabs inside the chat window
+- **Tab system** — Chat + editor tabs with dirty indicators, close buttons, cursor/scroll preservation
+- **Editor API** — `GET /api/editor/read`, `POST /api/editor/write`, `GET /api/editor/stat` with path security
+- **Atomic file saves** — temp file + rename prevents partial writes
+- **Binary detection** — extension check + null-byte sniffing, graceful error for non-text files
+- **Language inference** — 40+ file extensions mapped for future syntax highlighting
+- **Keyboard shortcuts** — Ctrl+S save, Ctrl+W close tab, Tab inserts spaces
+- **Line/column display** — real-time cursor position in editor header
+
+### Changed
+- **Editor programs extracted** — `vim`, `vi`, `nvim`, `nano`, `emacs`, `edit`, `code` now open editor instead of showing "blocked"
+- **Path security refined** — narrowed macOS `/private` blocking to `/private/etc` and `/private/var` only
+
+---
+
 ## [6.28.0] - 2026-05-20
 
 ### Added
