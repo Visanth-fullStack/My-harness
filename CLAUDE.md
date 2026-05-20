@@ -45,20 +45,22 @@ ALWAYS write tests before implementation. No exceptions.
 If asked to add a feature without tests, write the tests first then ask to proceed.
 If a PR diff shows untested code paths, flag them before continuing.
 
-## Model Routing — Token Economy (6-Tier)
+## Model Routing — Token Economy (13-Tier)
 
 | Tier | Model | Cost (in/out per M) | Role |
 |------|-------|---------------------|------|
 | 0 | Qwen3 (local) | $0 | File reads, quick edits, boilerplate, offline |
-| 1 | DeepSeek V4 Flash | $0.14 / $0.28 | Sub-agents, cheap internal calls |
-| 2 | Gemini 2.5 Flash-Lite | $0.10 / $0.40 | Bulk extraction, classification, CIG pipelines |
-| 3 | DeepSeek V4 Flash | $0.14 / $0.28 | Sub-agents, cheap internal calls |
+| 1 | Gemini 2.5 Flash-Lite | $0.10 / $0.40 | Bulk extraction, classification, CIG pipelines |
+| 2 | DeepSeek V4 Flash | $0.14 / $0.28 | Sub-agents, cheap internal calls |
+| 3 | Gemini 2.5 Flash | $0.15 / $0.60 | Multimodal, video analysis, brand assets |
 | 4 | DeepSeek V4 Pro | $0.435 / $0.87 | Main coding workhorse — ~80% of work |
-| 5 | Gemini 2.5 Flash | $0.15 / $0.60 | Multimodal, video analysis, brand assets |
-| 6 | Kimi K2.6 | $0.60 / $2.50 | Long agentic loops, routing alt |
-| 7 | Gemini 3.1 Pro + Search | $1.25 / $10 | Deep research, Google grounding, 2M context |
-| 8 | Codex | varies | Code review, bulk generation |
-| 9 | Claude Sonnet/Opus | $3-5 / $15-25 | Quality-critical, security, architecture |
+| 5 | Gemini CLI (coding agent) | ~$0.25-1.25 / M | Agentic coding, multi-file impl, Google tier |
+| 6 | AGY / Antigravity (Google) | Google tier | Terminal coding agent, end-to-end impl |
+| 7 | Kimi K2.6 | $0.60 / $2.50 | Long agentic loops, routing alt |
+| 8 | Gemini 3.1 Pro + Search | $1.25 / $10 | Deep research, Google grounding, 2M context |
+| 9 | Grok 4.3 (xAI) | $5 / $15 | Competitor intel, CKG, deep reasoning |
+| 10 | Codex | varies | Code review, bulk generation |
+| 11 | Claude Sonnet/Opus | $3-5 / $15-25 | Quality-critical, security, architecture |
 
 ### Use qwen3 (local) for:
 - grep, find, awk, sed, jq questions
@@ -94,7 +96,22 @@ Invoke: deepseek --pro ""
 
 Invoke: gemini --flash ""
 
-### Use kimi (Tier 6) for:
+### Use Gemini CLI (Tier 5) for:
+- Agentic coding tasks with file read/write
+- Multi-file implementation within Google ecosystem
+- Alternative coding agent for medium-complexity work
+
+Invoke: gemini-cli --pro ""
+
+### Use AGY / Antigravity (Tier 6) for:
+- End-to-end implementation (git operations, file edits, testing)
+- Terminal coding agent tasks (Google's coding agent)
+- Multi-step implementation with autonomous execution
+
+Invoke: agy-delegate --print ""
+Invoke (headless): agy-delegate --headless ""
+
+### Use kimi (Tier 7) for:
 - Commit messages, changelogs, diff summaries
 - Research questions needing reasoning
 - Quick single-model analysis
@@ -118,12 +135,19 @@ For architecture/code reviews, run DeepSeek + Kimi + Codex in parallel instead o
 
 Invoke: gemini --pro-search ""
 
-### Use Codex (Tier 8) for:
+### Use Grok (Tier 9) for:
+- Competitor intelligence and CKG building
+- Deep reasoning and market analysis
+- Truthful, insightful research
+
+Invoke: grok ""
+
+### Use Codex (Tier 10) for:
 - Large-scale boilerplate or test generation
 - Mechanical changes across many files
 - Code review (codex-review)
 
-### Use Claude (Tier 9) for:
+### Use Claude (Tier 11) for:
 - Architecture and system design
 - Security-critical code
 - Complex debugging, multi-service refactors
@@ -166,15 +190,18 @@ Before any PR is considered done:
 - Lookup / one-liner → qwen3
 - Bulk extraction / classification → Gemini Flash-Lite
 - Simple code / boilerplate → DeepSeek Flash
-- Features / refactors / debugging → DeepSeek Pro
 - Multimodal / video / images → Gemini Flash
+- Features / refactors / debugging → DeepSeek Pro
+- Agentic coding / multi-file impl → Gemini CLI
+- End-to-end impl / git+code+test → AGY (Antigravity)
 - Review / reasoning → kimi
 - Deep research / Google grounding → Gemini Pro Search
+- Competitor intel / deep reasoning → Grok
 - Bulk generation → Codex
 - Architecture / security / quality-critical → Claude
 - Before PR → pr-review script
 
-DeepSeek handles ~80% of coding work. Gemini fills multimodal, research, and bulk extraction gaps. Reserve Claude for quality-critical tasks.
+DeepSeek handles ~80% of coding work. Gemini CLI and AGY handle agentic implementation. Gemini fills multimodal, research, and bulk extraction gaps. Reserve Claude for quality-critical tasks.
 
 ## Tool Fallback Protocol
 

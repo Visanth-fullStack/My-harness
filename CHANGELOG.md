@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [6.30.0] - 2026-05-20
+
+### Added
+- **AGY (Antigravity) routing tier** — Google's terminal coding agent for end-to-end implementation (git+code+test)
+- **Gemini CLI routing tier** — agentic coding agent for multi-file implementation within Google ecosystem
+- **Grok routing tier** — xAI Grok 4.3 for competitor intel, CKG, deep reasoning
+
+### Changed
+- **Model routing expanded from 6-tier to 13-tier** — deduplicated tiers, added Gemini CLI (T5), AGY (T6), Grok (T9)
+- **Routing heuristic updated** — added agentic coding, end-to-end impl, and competitor intel routing paths
+- **Routing rules updated** — `model-routing.md` now includes GEMINI_CLI, AGY, GROK delegation rules
+
+---
+
 ## [6.29.0] - 2026-05-20
 
 ### Added
