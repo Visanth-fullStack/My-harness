@@ -49,6 +49,7 @@ from maggy.api.routes_projects import router as projects_router
 from maggy.api.routes_setup import router as setup_router
 from maggy.api.routes_users import router as users_router
 from maggy.api.routes_orchestrator import router as orchestrator_router
+from maggy.api.routes_shell import router as shell_router
 from maggy.mesh.ws_server import router as ws_mesh_router
 from maggy.budget import BudgetManager
 from maggy.event_spine.emitter import EventEmitter
@@ -308,7 +309,7 @@ _ROUTERS = (
     mesh_router, mesh_admin_router, observability_router,
     orchestrator_router, planning_router, plugins_router,
     process_router, projects_router, routing_router,
-    setup_router, testing_router, users_router,
+    setup_router, shell_router, testing_router, users_router,
     ws_mesh_router,
 )
 

@@ -434,7 +434,11 @@ function _starredProjects() {
   try { return JSON.parse(localStorage.getItem('maggy-starred') || '[]'); } catch { return []; }
 }
 function _collapsedProjects() {
-  try { return JSON.parse(localStorage.getItem('maggy-collapsed') || '[]'); } catch { return []; }
+  // Default: all collapsed. localStorage stores the *expanded* list.
+  return null; // Sentinel — renderChatSidebar checks explicitly
+}
+function _expandedProjects() {
+  try { return JSON.parse(localStorage.getItem('maggy-expanded') || '[]'); } catch { return []; }
 }
 function toggleStar(key) {
   const starred = _starredProjects();
@@ -445,10 +449,10 @@ function toggleStar(key) {
   if (pane) renderChatUI(pane);
 }
 function toggleCollapse(key) {
-  const collapsed = _collapsedProjects();
-  const idx = collapsed.indexOf(key);
-  if (idx >= 0) collapsed.splice(idx, 1); else collapsed.push(key);
-  localStorage.setItem('maggy-collapsed', JSON.stringify(collapsed));
+  const expanded = _expandedProjects();
+  const idx = expanded.indexOf(key);
+  if (idx >= 0) expanded.splice(idx, 1); else expanded.push(key);
+  localStorage.setItem('maggy-expanded', JSON.stringify(expanded));
   const pane = document.getElementById('pane-chat');
   if (pane) renderChatUI(pane);
 }
@@ -488,56 +492,54 @@ function renderChatSidebar(sessions) {
     (groups[key] = groups[key] || []).push(s);
   }
   const starred = _starredProjects();
-  const collapsed = _collapsedProjects();
+  const expanded = _expandedProjects();
   // Sort: starred first, then alphabetical
   const keys = Object.keys(groups).sort((a, b) => {
     const aS = starred.includes(a) ? 0 : 1;
     const bS = starred.includes(b) ? 0 : 1;
     return aS - bS || a.localeCompare(b);
   });
-  let html = `<div class="w-60 shrink-0 border-r border-gray-800 pr-3 overflow-y-auto">`;
-  html += `<div class="flex items-center justify-between mb-2">
-    <span class="text-[10px] text-gray-500 uppercase font-bold"><i class="fas fa-circle text-green-400 text-[8px] mr-1"></i>Projects</span>
-    <button onclick="newChatSession()" class="text-[10px] px-2 py-1 rounded bg-orange-600 hover:bg-orange-700 text-white"><i class="fas fa-plus mr-1"></i>New</button>
+  let html = `<div class="w-56 shrink-0 border-r border-gray-800/60 overflow-y-auto scroll-thin" style="padding:12px 14px 12px 10px">`;
+  html += `<div class="flex items-center gap-1.5 mb-3 pb-2 border-b border-gray-800/40">
+    <i class="fas fa-folder-tree text-orange-500/60 text-[10px]"></i>
+    <span class="text-[10px] text-gray-500 uppercase font-semibold tracking-wide">Projects</span>
+    <span class="text-[9px] text-gray-600 ml-auto">${keys.length}</span>
   </div>`;
   if (!sessions.length) {
-    html += `<div class="text-[10px] text-gray-500 p-2">No active CLI sessions detected</div>`;
+    html += `<div class="text-[10px] text-gray-600 py-3 text-center">No active sessions</div>`;
   }
   for (const project of keys) {
     const slist = groups[project];
     const isStarred = starred.includes(project);
-    const isCollapsed = collapsed.includes(project);
+    const isExpanded = expanded.includes(project);
     const starCls = isStarred ? 'text-yellow-400' : 'text-gray-700 hover:text-yellow-400';
-    const starIcon = isStarred ? 'fa-star' : 'fa-star';
-    const chevron = isCollapsed ? 'fa-chevron-right' : 'fa-chevron-down';
-    html += `<div class="mb-2">`;
-    html += `<div class="flex items-center gap-1 mb-1 group">
-      <button onclick="event.stopPropagation(); toggleCollapse('${jsStr(project)}')" class="text-[9px] text-gray-600 hover:text-white w-3"><i class="fas ${chevron}"></i></button>
-      <button onclick="event.stopPropagation(); toggleStar('${jsStr(project)}')" class="text-[9px] ${starCls}" title="${isStarred ? 'Unstar' : 'Star'}"><i class="fas ${starIcon}"></i></button>
-      <span class="text-[10px] text-gray-400 font-bold uppercase truncate flex-1 cursor-pointer" onclick="toggleCollapse('${jsStr(project)}')">${esc(project)}</span>
-      <button onclick="newSessionForProject('${jsStr(project)}')" class="text-[9px] text-gray-600 hover:text-orange-400 opacity-0 group-hover:opacity-100" title="New session"><i class="fas fa-plus"></i></button>
+    const chevron = isExpanded ? 'fa-chevron-down' : 'fa-chevron-right';
+    html += `<div class="mb-1">`;
+    html += `<div class="flex items-center gap-1.5 py-1.5 px-1 rounded hover:bg-white/[0.02] group cursor-pointer" onclick="toggleCollapse('${jsStr(project)}')">
+      <i class="fas ${chevron} text-[8px] text-gray-600 w-3 text-center"></i>
+      <button onclick="event.stopPropagation(); toggleStar('${jsStr(project)}')" class="text-[9px] ${starCls}" title="${isStarred ? 'Unstar' : 'Star'}"><i class="fas fa-star"></i></button>
+      <span class="text-[10px] text-gray-400 font-medium truncate flex-1">${esc(project)}</span>
+      <span class="text-[9px] text-gray-700">${slist.length}</span>
+      <button onclick="event.stopPropagation(); newSessionForProject('${jsStr(project)}')" class="text-[9px] text-gray-700 hover:text-orange-400 opacity-0 group-hover:opacity-100 ml-0.5" title="New session"><i class="fas fa-plus"></i></button>
     </div>`;
-    if (!isCollapsed) {
+    if (isExpanded) {
+      html += `<div class="ml-5 mt-0.5 mb-1 space-y-0.5">`;
       for (let i = 0; i < slist.length; i++) {
         const s = slist[i];
-        const active = s.id === CHAT_SESSION_ID ? 'bg-gray-800 border-orange-500' : 'border-transparent hover:bg-gray-900';
+        const active = s.id === CHAT_SESSION_ID ? 'bg-orange-500/10 border-orange-500/40' : 'border-transparent hover:bg-white/[0.03]';
         const displayName = s.label || `Session ${i + 1}`;
         const isBranch = s.label && s.label !== `Session ${i + 1}`;
         const icon = isBranch ? 'fa-code-branch' : 'fa-circle';
-        const resumeBadge = s.has_resume_id ? '<i class="fas fa-history text-green-400 text-[7px]" title="Claude session linked"></i>' : '';
-        html += `<div class="card px-2 py-1 cursor-pointer border ml-4 ${active}" onclick="openChatSession('${jsStr(s.id)}')">
-          <div class="flex items-center gap-1">
-            <i class="fas ${icon} ${isBranch ? 'text-orange-400' : 'text-green-400'} text-[7px]"></i>
-            <span id="slabel-${esc(s.id)}" class="text-[10px] text-gray-300 flex-1 truncate">${esc(displayName)}</span>
+        const resumeBadge = s.has_resume_id ? '<i class="fas fa-history text-green-400/60 text-[7px]" title="Claude session linked"></i>' : '';
+        html += `<div class="flex items-center gap-1.5 px-2 py-1 rounded border cursor-pointer group ${active}" onclick="openChatSession('${jsStr(s.id)}')">
+            <i class="fas ${icon} ${isBranch ? 'text-orange-400/70' : 'text-green-400/50'} text-[6px]"></i>
+            <span id="slabel-${esc(s.id)}" class="text-[10px] text-gray-400 flex-1 truncate">${esc(displayName)}</span>
             ${resumeBadge}
-            <button onclick="event.stopPropagation(); renameSession('${jsStr(s.id)}')" class="text-[9px] text-gray-600 hover:text-orange-400" title="Rename"><i class="fas fa-pen"></i></button>
-            <button onclick="event.stopPropagation(); deleteSession('${jsStr(s.id)}')" class="text-[9px] text-gray-600 hover:text-red-400" title="Delete"><i class="fas fa-trash"></i></button>
-          </div>
+            <button onclick="event.stopPropagation(); renameSession('${jsStr(s.id)}')" class="text-[8px] text-gray-700 hover:text-orange-400 opacity-0 group-hover:opacity-100" title="Rename"><i class="fas fa-pen"></i></button>
+            <button onclick="event.stopPropagation(); deleteSession('${jsStr(s.id)}')" class="text-[8px] text-gray-700 hover:text-red-400 opacity-0 group-hover:opacity-100" title="Delete"><i class="fas fa-trash"></i></button>
         </div>`;
       }
-    } else {
-      // Show count badge when collapsed
-      html += `<div class="ml-4 text-[9px] text-gray-600">${slist.length} session${slist.length !== 1 ? 's' : ''}</div>`;
+      html += `</div>`;
     }
     html += `</div>`;
   }
@@ -556,13 +558,12 @@ function renderChatMain() {
     </div>`;
     // Messages scroll area
     html += `<div id="chat-messages" class="flex-1 overflow-y-auto min-h-0 px-5 py-3"><div id="chat-messages-inner" class="flex flex-col justify-end min-h-full space-y-3"></div></div>`;
-    // Working zone (hidden by default)
-    html += `<div id="working-zone" class="hidden shrink-0 px-5 py-2 border-t border-gray-700/30">
-      <div class="flex items-center gap-2 mb-1">
-        <span class="inline-block w-2 h-2 rounded-full bg-orange-500 animate-pulse"></span>
-        <span id="model-label" class="text-[11px] text-gray-500"></span>
-      </div>
-      <pre id="joke-text" class="text-[11px] leading-relaxed ml-4 max-h-16 overflow-y-auto"></pre>
+    // Working status bar (single line, compact)
+    html += `<div id="working-zone" class="hidden shrink-0 px-5 py-1.5 border-t border-gray-700/30 flex items-center gap-2">
+      <span class="inline-block w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+      <span id="model-label" class="text-[10px] text-gray-500">Working...</span>
+      <span class="text-[10px] text-gray-700">·</span>
+      <span id="joke-text" class="text-[10px] text-gray-600 truncate flex-1"></span>
     </div>`;
     // Divider + input bar + divider
     html += `<div class="border-t border-gray-700/50"></div>`;
@@ -795,22 +796,13 @@ let _jokeTimer = null;
 
 function startJokeRotation(el) {
   let idx = Math.floor(Math.random() * JOKES.length);
-  let step = 0;
-  const joke = JOKES[idx];
-  el.innerHTML = `<span class="text-orange-400">${esc(joke[0])}</span>`;
+  // Show punchline (last element) as a single line
+  const punchline = (joke) => joke[joke.length - 1];
+  el.textContent = punchline(JOKES[idx]);
   _jokeTimer = setInterval(() => {
-    step++;
-    if (step >= joke.length) {
-      idx = (idx + 1) % JOKES.length;
-      step = 0;
-      const next = JOKES[idx];
-      el.innerHTML = `<span class="text-orange-400">${esc(next[0])}</span>`;
-    } else {
-      const j = JOKES[idx];
-      const cls = step % 2 === 1 ? 'text-gray-500' : 'text-orange-400';
-      el.innerHTML += `<br><span class="${cls}">${esc(j[step])}</span>`;
-    }
-  }, 1800);
+    idx = (idx + 1) % JOKES.length;
+    el.textContent = punchline(JOKES[idx]);
+  }, 4000);
 }
 
 function stopJokeRotation() {
@@ -822,8 +814,8 @@ function showWorking() {
   const zone = document.getElementById('working-zone');
   const label = document.getElementById('model-label');
   if (bar) bar.classList.remove('hidden');
-  if (zone) zone.classList.remove('hidden');
-  if (label) label.textContent = 'Thinking…';
+  if (zone) { zone.classList.remove('hidden'); zone.style.display = 'flex'; }
+  if (label) label.textContent = 'Working...';
   const jokeEl = document.getElementById('joke-text');
   if (jokeEl) startJokeRotation(jokeEl);
 }
@@ -835,8 +827,8 @@ function hideWorking() {
   const joke = document.getElementById('joke-text');
   const label = document.getElementById('model-label');
   if (bar) bar.classList.add('hidden');
-  if (zone) zone.classList.add('hidden');
-  if (joke) joke.innerHTML = '';
+  if (zone) { zone.classList.add('hidden'); zone.style.display = ''; }
+  if (joke) joke.textContent = '';
   if (label) label.textContent = '';
 }
 
@@ -991,12 +983,362 @@ async function _uploadFiles() {
   return paths;
 }
 
+// ── CLI command handling ────────────────────────────────────────────────
+// Track virtual cwd per session (falls back to session working_dir)
+var _shellCwd = {};
+
+function _getShellCwd() {
+  if (_shellCwd[CHAT_SESSION_ID]) return _shellCwd[CHAT_SESSION_ID];
+  // Find session working_dir from cache
+  var s = (CHAT_SESSIONS_CACHE || []).find(function(x) { return x.id === CHAT_SESSION_ID; });
+  var cwd = (s && (s.repo_dir || s.working_dir)) || '';
+  if (cwd) { _shellCwd[CHAT_SESSION_ID] = cwd; return cwd; }
+  // Last resort: try to get from project config
+  var proj = (s && s.project_key) || '';
+  if (proj && window._projectList) {
+    // Use home dir as fallback
+    return '';
+  }
+  return '';
+}
+
+function _setShellCwd(path) {
+  if (CHAT_SESSION_ID && path) _shellCwd[CHAT_SESSION_ID] = path;
+}
+
+// Sync client commands (return string or null)
+var _CLIENT_COMMANDS = {
+  'clear': function() { var el = document.getElementById('chat-messages-inner'); if (el) el.innerHTML = ''; return null; },
+  'help': function() {
+    return 'Shell commands:\n'
+      + '  ls, ll, la        list files\n'
+      + '  cd <dir>          change directory\n'
+      + '  pwd               working directory\n'
+      + '  cat/head/tail     read files\n'
+      + '  grep/find/tree    search\n'
+      + '  git <cmd>         git operations\n'
+      + '  clear             clear chat\n\n'
+      + 'Slash commands:\n'
+      + '  /help             this help\n'
+      + '  /mnemos           memory status & recent nodes\n'
+      + '  /icpg             intent graph overview\n'
+      + '  /competitors      competitor intel summary\n'
+      + '  /budget           token spend summary\n'
+      + '  /routing          model routing stats\n'
+      + '  /progress         execution progress\n'
+      + '  /forge            tool registry status\n'
+      + '  /plan <topic>     draft a build-in-public plan\n'
+      + '  /status           system health overview\n\n'
+      + 'Anything else is sent to AI chat.';
+  },
+};
+
+// Async slash commands (return promise of HTML string)
+var _SLASH_COMMANDS = {
+  '/help': function() { return Promise.resolve(_CLIENT_COMMANDS['help']()); },
+
+  '/mnemos': async function() {
+    var diag = await api('/engram/diagnostics').catch(function() { return {}; });
+    var q = await api('/engram/query?limit=8').catch(function() { return { records: [] }; });
+    var f = diag.fatigue_score || 0;
+    var state = f < 0.4 ? 'FLOW' : f < 0.6 ? 'COMPRESS' : f < 0.75 ? 'PRE_SLEEP' : f < 0.9 ? 'REM' : 'EMERGENCY';
+    var out = 'Memory: ' + (f * 100).toFixed(0) + '% ' + state
+      + '  |  Engrams: ' + (diag.total_engrams || 0)
+      + '  |  Checkpoints: ' + (diag.checkpoints || 0)
+      + '  |  Expired: ' + (diag.expired || 0) + '\n';
+    var recs = q.records || [];
+    if (recs.length) {
+      out += '\nRecent memories:\n';
+      for (var i = 0; i < recs.length; i++) {
+        var r = recs[i];
+        var tag = (r.memory_type || 'fact').toUpperCase();
+        var content = (r.content || '').substring(0, 100);
+        out += '  [' + tag + '] ' + content + '\n';
+      }
+    }
+    return out;
+  },
+
+  '/icpg': async function() {
+    var data = await api('/icpg/overview').catch(function() { return {}; });
+    var keys = data.projects || Object.keys(data).filter(function(k) { return k !== 'projects'; });
+    if (!keys.length && typeof data === 'object') keys = Object.keys(data);
+    var out = 'iCPG Overview:\n';
+    if (Array.isArray(keys) && keys.length) {
+      for (var i = 0; i < keys.length; i++) {
+        var k = typeof keys[i] === 'string' ? keys[i] : (keys[i].key || keys[i].name || '');
+        var info = data[k] || keys[i] || {};
+        var intents = info.intent_count || info.intents || '?';
+        var drift = info.drift_count || info.drifts || 0;
+        out += '  ' + k + '  —  intents: ' + intents + (drift ? '  drift: ' + drift : '') + '\n';
+      }
+    } else {
+      out += '  No projects indexed. Run /icpg-bootstrap in Claude Code.\n';
+    }
+    return out;
+  },
+
+  '/competitors': async function() {
+    var comps = await api('/competitors').catch(function() { return []; });
+    var news = await api('/competitors/news?limit=5').catch(function() { return []; });
+    var out = 'Competitors: ' + (Array.isArray(comps) ? comps.length : 0) + ' tracked\n';
+    if (Array.isArray(comps) && comps.length) {
+      for (var i = 0; i < Math.min(comps.length, 8); i++) {
+        var c = comps[i];
+        out += '  ' + (c.name || '?') + (c.category ? '  (' + c.category + ')' : '') + '\n';
+      }
+    }
+    if (Array.isArray(news) && news.length) {
+      out += '\nLatest news:\n';
+      for (var j = 0; j < news.length; j++) {
+        var n = news[j];
+        out += '  ' + (n.title || n.headline || '').substring(0, 80) + '\n';
+      }
+    }
+    return out;
+  },
+
+  '/budget': async function() {
+    var b = await api('/budget').catch(function() { return {}; });
+    var byProv = await api('/budget/by-provider').catch(function() { return {}; });
+    var out = 'Token Budget:\n';
+    out += '  Today: $' + ((b.today_cost || 0)).toFixed(4);
+    out += '  |  Limit: $' + ((b.daily_limit || 0)).toFixed(2);
+    out += '  |  Month: $' + ((b.month_cost || 0)).toFixed(2) + '\n';
+    var providers = Object.keys(byProv);
+    if (providers.length) {
+      out += '\nBy provider:\n';
+      for (var i = 0; i < providers.length; i++) {
+        var p = providers[i];
+        var v = byProv[p];
+        var cost = typeof v === 'number' ? v : (v && v.cost) || 0;
+        out += '  ' + p + ': $' + cost.toFixed(4) + '\n';
+      }
+    }
+    return out;
+  },
+
+  '/routing': async function() {
+    var data = await api('/routing/heatmap').catch(function() { return {}; });
+    var models = data.models || Object.keys(data);
+    var out = 'Model Routing:\n';
+    if (Array.isArray(models) && models.length) {
+      for (var i = 0; i < models.length; i++) {
+        var m = typeof models[i] === 'string' ? models[i] : (models[i].name || '');
+        var info = data[m] || models[i] || {};
+        var calls = info.calls || info.count || '?';
+        var avg = info.avg_latency || info.latency || '';
+        out += '  ' + m + '  calls: ' + calls + (avg ? '  avg: ' + avg + 'ms' : '') + '\n';
+      }
+    } else {
+      out += '  No routing data yet.\n';
+    }
+    return out;
+  },
+
+  '/progress': async function() {
+    var data = await api('/execute/sessions').catch(function() { return { sessions: [] }; });
+    var sessions = data.sessions || data || [];
+    if (!Array.isArray(sessions)) sessions = [];
+    var out = 'Execution Progress:  ' + sessions.length + ' session(s)\n';
+    for (var i = 0; i < Math.min(sessions.length, 10); i++) {
+      var s = sessions[i];
+      var status = s.status || '?';
+      var icon = status === 'running' ? '[*]' : status === 'done' ? '[v]' : '[ ]';
+      out += '  ' + icon + ' ' + (s.task_id || s.id || '?') + '  ' + status + '\n';
+    }
+    if (!sessions.length) out += '  No active sessions.\n';
+    return out;
+  },
+
+  '/forge': async function() {
+    var status = await api('/forge/status').catch(function() { return {}; });
+    var gaps = await api('/forge/gaps').catch(function() { return []; });
+    var out = 'Forge — Tool Registry:\n';
+    var tools = status.tools || [];
+    out += '  Tools: ' + (Array.isArray(tools) ? tools.length : (status.total || '?')) + '\n';
+    if (Array.isArray(gaps) && gaps.length) {
+      out += '\nCapability gaps:\n';
+      for (var i = 0; i < Math.min(gaps.length, 5); i++) {
+        out += '  - ' + (gaps[i].description || gaps[i].name || gaps[i]) + '\n';
+      }
+    }
+    return out;
+  },
+
+  '/status': async function() {
+    var health = await api('/health').catch(function() { return {}; });
+    var diag = await api('/engram/diagnostics').catch(function() { return {}; });
+    var b = await api('/budget').catch(function() { return {}; });
+    var f = diag.fatigue_score || 0;
+    var state = f < 0.4 ? 'FLOW' : f < 0.6 ? 'COMPRESS' : f < 0.75 ? 'PRE_SLEEP' : f < 0.9 ? 'REM' : 'EMERGENCY';
+    var out = 'System Status:\n';
+    out += '  Server:  ' + (health.status || 'ok') + '\n';
+    out += '  Memory:  ' + (f * 100).toFixed(0) + '% ' + state + '  (' + (diag.total_engrams || 0) + ' engrams)\n';
+    out += '  Budget:  $' + ((b.today_cost || 0)).toFixed(4) + ' today  /  $' + ((b.daily_limit || 0)).toFixed(2) + ' limit\n';
+    out += '  Mode:    ' + (health.mode || '?') + '\n';
+    return out;
+  },
+
+  '/plan': async function(args) {
+    var topic = args || 'build-in-public';
+    return 'Planning: ' + topic + '\n\n'
+      + 'To generate a build-in-public plan, send this to AI:\n'
+      + '  "Create a build-in-public content plan for: ' + topic + '"\n\n'
+      + 'Or use the plugin directly:\n'
+      + '  ~/.maggy/plugins/build-in-public/\n';
+  },
+};
+
+// Shell commands that go to backend /api/shell/exec
+var _SHELL_PREFIXES = [
+  'ls', 'll', 'la', 'pwd', 'cd', 'cat', 'head', 'tail', 'wc',
+  'find', 'grep', 'rg', 'tree', 'file', 'stat', 'du', 'df',
+  'whoami', 'date', 'echo', 'which', 'git', 'env', 'printenv',
+  'uname', 'hostname',
+];
+
+function _isShellCommand(msg) {
+  if (!msg) return false;
+  if (msg.charAt(0) === '/') return true; // slash command
+  var first = msg.split(/\s/)[0];
+  if (_CLIENT_COMMANDS[first]) return true;
+  return _SHELL_PREFIXES.indexOf(first) >= 0;
+}
+
+function _renderTerminalOutput(cmd, output, exitCode, cwd) {
+  var exitClass = exitCode === 0 ? 'text-green-500' : 'text-red-400';
+  var cwdShort = cwd ? cwd.replace(/^\/Users\/[^/]+/, '~') : '';
+  return '<div class="flex justify-start"><div class="w-full max-w-[90%]">'
+    + '<div class="flex items-center gap-2 mb-1">'
+    + '<span class="text-[9px] text-gray-600">' + esc(cwdShort) + '</span>'
+    + '<span class="text-[9px] ' + exitClass + '">' + (exitCode === 0 ? '✓' : '✗ ' + exitCode) + '</span>'
+    + '</div>'
+    + '<pre class="text-[11px] text-gray-300 bg-black/30 rounded-md px-3 py-2 overflow-x-auto border border-gray-800/50" style="white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto">'
+    + esc(output || '(no output)')
+    + '</pre></div></div>';
+}
+
+function _renderTerminalPrompt(cmd, cwd) {
+  var cwdShort = cwd ? cwd.replace(/^\/Users\/[^/]+/, '~') : '$';
+  return '<div class="flex justify-end"><div class="max-w-[75%]">'
+    + '<div class="flex items-center gap-1.5 bg-gray-800/60 rounded-md px-3 py-1.5 border border-gray-700/40">'
+    + '<span class="text-[10px] text-orange-400/70 font-mono">' + esc(cwdShort) + '</span>'
+    + '<span class="text-[10px] text-gray-500">$</span>'
+    + '<span class="text-[11px] text-gray-200 font-mono">' + esc(cmd) + '</span>'
+    + '</div></div></div>';
+}
+
+function _renderSlashPrompt(cmd) {
+  return '<div class="flex justify-end"><div class="max-w-[75%]">'
+    + '<div class="flex items-center gap-1.5 bg-purple-900/30 rounded-md px-3 py-1.5 border border-purple-700/30">'
+    + '<i class="fas fa-terminal text-[9px] text-purple-400/70"></i>'
+    + '<span class="text-[11px] text-purple-300 font-mono">' + esc(cmd) + '</span>'
+    + '</div></div></div>';
+}
+
+function _renderSlashOutput(text, isError) {
+  var borderCls = isError ? 'border-red-800/40' : 'border-purple-800/30';
+  var bgCls = isError ? 'bg-red-950/20' : 'bg-purple-950/15';
+  return '<div class="flex justify-start"><div class="w-full max-w-[90%]">'
+    + '<pre class="text-[11px] text-gray-300 ' + bgCls + ' rounded-md px-3 py-2 overflow-x-auto border ' + borderCls + '" style="white-space:pre-wrap;word-break:break-word;max-height:400px;overflow-y:auto">'
+    + esc(text || '(no output)')
+    + '</pre></div></div>';
+}
+
+async function _execShellCommand(cmd) {
+  // Expand aliases
+  var expanded = cmd;
+  if (expanded === 'll') expanded = 'ls -la';
+  else if (expanded === 'la') expanded = 'ls -A';
+
+  var cwd = _getShellCwd();
+  var outer = document.getElementById('chat-messages');
+  var el = document.getElementById('chat-messages-inner') || outer;
+
+  // Slash commands — async, fetch data from API
+  if (cmd.charAt(0) === '/') {
+    var parts = cmd.split(/\s+/);
+    var slashCmd = parts[0].toLowerCase();
+    var slashArgs = parts.slice(1).join(' ');
+    var handler = _SLASH_COMMANDS[slashCmd];
+    if (!handler) {
+      el.innerHTML += _renderSlashPrompt(cmd);
+      el.innerHTML += _renderSlashOutput('Unknown command: ' + slashCmd + '\nType /help for available commands.', true);
+      if (outer) outer.scrollTop = outer.scrollHeight;
+      return;
+    }
+    el.innerHTML += _renderSlashPrompt(cmd);
+    if (outer) outer.scrollTop = outer.scrollHeight;
+    try {
+      var result = await handler(slashArgs);
+      el.innerHTML += _renderSlashOutput(result, false);
+    } catch (e) {
+      el.innerHTML += _renderSlashOutput('Error: ' + e.message, true);
+    }
+    if (outer) outer.scrollTop = outer.scrollHeight;
+    return;
+  }
+
+  // Check sync client-side commands
+  var first = cmd.split(/\s/)[0];
+  if (_CLIENT_COMMANDS[first]) {
+    var result = _CLIENT_COMMANDS[first]();
+    if (result === null) return; // e.g. 'clear'
+    el.innerHTML += _renderTerminalPrompt(cmd, cwd);
+    el.innerHTML += _renderTerminalOutput(cmd, result, 0, cwd);
+    if (outer) outer.scrollTop = outer.scrollHeight;
+    return;
+  }
+
+  // Show prompt
+  el.innerHTML += _renderTerminalPrompt(cmd, cwd);
+  if (outer) outer.scrollTop = outer.scrollHeight;
+
+  try {
+    var apiKey = localStorage.getItem('maggy-api-key') || '';
+    var headers = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['X-API-Key'] = apiKey;
+    var payload = { command: expanded };
+    if (cwd) payload.cwd = cwd;
+    var resp = await fetch(API + '/shell/exec', {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      var errText = await resp.text();
+      el.innerHTML += _renderTerminalOutput(expanded, 'API error ' + resp.status + ': ' + errText, 1, cwd);
+    } else {
+      var data = await resp.json();
+      var exitCode = typeof data.exit_code === 'number' ? data.exit_code : 0;
+      if (data.cwd) _setShellCwd(data.cwd);
+      el.innerHTML += _renderTerminalOutput(expanded, data.output || '', exitCode, data.cwd || cwd);
+    }
+  } catch (e) {
+    el.innerHTML += _renderTerminalOutput(expanded, 'Error: ' + e.message, 1, cwd);
+  }
+  if (outer) outer.scrollTop = outer.scrollHeight;
+}
+
+// ── Chat message send ──────────────────────────────────────────────────
 async function sendChatMessage() {
   const input = document.getElementById('chat-input');
   if (!input) return;
   let message = input.value.trim();
   if (!message && !_pendingFiles.length) return;
   if (!CHAT_SESSION_ID) return;
+
+  // Check if it's a CLI command (no file attachments)
+  if (!_pendingFiles.length && _isShellCommand(message)) {
+    input.value = '';
+    input.style.height = 'auto';
+    await _execShellCommand(message);
+    input.focus();
+    refreshSuggestion();
+    return;
+  }
+
   if (_pendingFiles.length) {
     try {
       const paths = await _uploadFiles();
@@ -1728,7 +2070,7 @@ async function loadMemory() {
     html += '</div>';
     pane.innerHTML = html;
     var fb = document.getElementById('fatigue-badge');
-    if (fb) { fb.textContent = (fatigue * 100).toFixed(0) + '% · ' + state; fb.style.color = stateColor; fb.className = ''; }
+    if (fb) { fb.style.backgroundColor = stateColor; fb.title = (fatigue * 100).toFixed(0) + '% · ' + state; fb.className = 'w-2 h-2 rounded-full inline-block'; }
   } catch (e) {
     pane.innerHTML = '<div class="flex items-center justify-center h-full text-gray-600 text-xs">Memory offline — start a task to populate</div>';
   }
